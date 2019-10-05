@@ -288,6 +288,7 @@ TEST_P(NAME, blas1)                                                            \
 {                                                                              \
     rocblas_blas1_dispatch<blas1_##NAME::template testing>(GetParam());        \
 }                                                                              \
+// clang-format on
                                                                                \
 INSTANTIATE_TEST_CATEGORIES(NAME)
 
@@ -323,7 +324,5 @@ BLAS1_TESTING(rot,   ARG3)
 BLAS1_TESTING(rotg,  ARG2)
 BLAS1_TESTING(rotm,  ARG1)
 BLAS1_TESTING(rotmg, ARG1)
-
-    // clang-format on
 
 } // namespace

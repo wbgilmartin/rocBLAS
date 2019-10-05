@@ -563,7 +563,7 @@ try
 
     options_description desc("rocblas-bench command line options");
     desc.add_options()
-        // clang-format off
+    // clang-format off
 
 #ifdef USE_TENSILE_HOST
         ("lib",
@@ -806,7 +806,8 @@ try
         throw std::invalid_argument("Invalid value for --function");
 
 #ifdef USE_TENSILE_HOST
-    int copied_host = snprintf(arg.host_lib_path, sizeof(arg.host_lib_path), "%s", host_lib_path.c_str());
+    int copied_host
+        = snprintf(arg.host_lib_path, sizeof(arg.host_lib_path), "%s", host_lib_path.c_str());
     if(copied_host <= 0 || copied_host >= sizeof(arg.host_lib_path))
         throw std::invalid_argument("Invalid value for --lib");
 #endif
