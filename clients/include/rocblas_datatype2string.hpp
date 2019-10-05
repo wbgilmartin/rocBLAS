@@ -196,7 +196,7 @@ constexpr rocblas_side char2rocblas_side(char value)
 }
 
 // clang-format off
-nline rocblas_initialization string2rocblas_initialization(const std::string& value)
+inline rocblas_initialization string2rocblas_initialization(const std::string& value)
 {
     return
         value == "rand_int"   ? rocblas_initialization_random_int :

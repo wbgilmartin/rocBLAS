@@ -74,7 +74,8 @@ auto create_gemm_contraction_problem_strided(rocblas_operation trans_a,
                                                                                     stride_c,
                                                                                     ld_c,
                                                                                     stride_c,
-                                                                                    *beta);
+// TODO: Must fix this to work with complex
+                                                                                    std::real(*beta));
 
     return problem;
 }
@@ -153,7 +154,8 @@ auto create_gemm_contraction_problem(rocblas_operation trans_a,
     Tensile::TensorOps nop;
 
     return Tensile::ContractionProblem(
-        a, nop, b, nop, c, nop, d, nop, freeIndices, batchIndices, boundIndices, *beta);
+// TODO: Must fix this to work with complex
+        a, nop, b, nop, c, nop, d, nop, freeIndices, batchIndices, boundIndices, std::real(*beta));
 }
 
 template <typename T>
