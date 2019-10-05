@@ -92,15 +92,11 @@ void testing_gemm(const Arguments& arg)
     T h_alpha = arg.get_alpha<T>();
     T h_beta  = arg.get_beta<T>();
 
-    double gpu_time_used, cpu_time_used;
-    double rocblas_gflops, cblas_gflops;
-    double rocblas_error = 0.0;
-#ifdef USE_TENSILE_HOST
-    const char*          host_lib_path = arg.host_lib_path;
-    rocblas_local_handle handle(host_lib_path);
-#else
+    double               gpu_time_used, cpu_time_used;
+    double               rocblas_gflops, cblas_gflops;
+    double               rocblas_error = 0.0;
     rocblas_local_handle handle;
-#endif
+
     rocblas_int A_row = transA == rocblas_operation_none ? M : K;
     rocblas_int A_col = transA == rocblas_operation_none ? K : M;
     rocblas_int B_row = transB == rocblas_operation_none ? K : N;
