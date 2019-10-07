@@ -33,6 +33,13 @@ static constexpr auto tensile_datatype<rocblas_float_complex> = Tensile::DataTyp
 template <>
 static constexpr auto tensile_datatype<rocblas_double_complex> = Tensile::DataType::ComplexDouble;
 
+// return the value category for a value, such as whether it's 0 or 1
+template <typename T>
+constexpr auto value_category(const T* beta)
+{
+    return *beta == T(0) ? 0.0 : *beta == T(1) ? 1.0 : -12345.0;
+}
+
 template <typename T>
 auto create_gemm_contraction_problem_strided(rocblas_operation trans_a,
                                              rocblas_operation trans_b,
@@ -55,27 +62,27 @@ auto create_gemm_contraction_problem_strided(rocblas_operation trans_a,
     bool transposeA = trans_a != rocblas_operation_none;
     bool transposeB = trans_b != rocblas_operation_none;
 
-    Tensile::DataType           dt      = tensile_datatype<T>;
-    Tensile::ContractionProblem problem = Tensile::ContractionProblem::GEMM_Strides(transposeA,
-                                                                                    transposeB,
-                                                                                    dt,
-                                                                                    dt,
-                                                                                    dt,
-                                                                                    dt,
-                                                                                    m,
-                                                                                    n,
-                                                                                    k,
-                                                                                    batchSize,
-                                                                                    ld_a,
-                                                                                    stride_a,
-                                                                                    ld_b,
-                                                                                    stride_b,
-                                                                                    ld_c,
-                                                                                    stride_c,
-                                                                                    ld_c,
-                                                                                    stride_c,
-// TODO: Must fix this to work with complex
-                                                                                    std::real(*beta));
+    Tensile::DataType           dt = tensile_datatype<T>;
+    Tensile::ContractionProblem problem
+        = Tensile::ContractionProblem::GEMM_Strides(transposeA,
+                                                    transposeB,
+                                                    dt,
+                                                    dt,
+                                                    dt,
+                                                    dt,
+                                                    m,
+                                                    n,
+                                                    k,
+                                                    batchSize,
+                                                    ld_a,
+                                                    stride_a,
+                                                    ld_b,
+                                                    stride_b,
+                                                    ld_c,
+                                                    stride_c,
+                                                    ld_c,
+                                                    stride_c,
+                                                    value_category(beta));
 
     return problem;
 }
@@ -148,14 +155,23 @@ auto create_gemm_contraction_problem(rocblas_operation trans_a,
 
     batchIndices.push_back({2, 2, 2, 2});
 
-    if(*beta != 0.0)
+    if(value_category(beta) != 0)
         c = d;
 
     Tensile::TensorOps nop;
 
-    return Tensile::ContractionProblem(
-// TODO: Must fix this to work with complex
-        a, nop, b, nop, c, nop, d, nop, freeIndices, batchIndices, boundIndices, std::real(*beta));
+    return Tensile::ContractionProblem(a,
+                                       nop,
+                                       b,
+                                       nop,
+                                       c,
+                                       nop,
+                                       d,
+                                       nop,
+                                       freeIndices,
+                                       batchIndices,
+                                       boundIndices,
+                                       value_category(beta));
 }
 
 template <typename T>
@@ -278,7 +294,8 @@ TensileHost* createTensileHost()
 }
 
 template <typename T>
-inline rocblas_status callTensileContraction(RocblasContractionProblem<T>* problem, TensileHost* host)
+inline rocblas_status callTensileContraction(RocblasContractionProblem<T>* problem,
+                                             TensileHost*                  host)
 {
     TensileHostCall<T> hostCaller;
     return hostCaller.runContractionProblem(problem, host);
