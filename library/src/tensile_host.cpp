@@ -35,9 +35,9 @@ static constexpr auto tensile_datatype<rocblas_double_complex> = Tensile::DataTy
 
 // return the value category for a value, such as whether it's 0 or 1
 template <typename T>
-constexpr auto value_category(const T* beta)
+constexpr auto value_category(const T& beta)
 {
-    return *beta == T(0) ? 0.0 : *beta == T(1) ? 1.0 : -12345.0;
+    return beta == T(0) ? 0.0 : beta == T(1) ? 1.0 : -12345.0;
 }
 
 template <typename T>
@@ -46,14 +46,14 @@ auto create_gemm_contraction_problem_strided(rocblas_operation trans_a,
                                              unsigned long     m,
                                              unsigned long     n,
                                              unsigned long     k,
-                                             const T*          alpha,
+                                             const T           alpha,
                                              const T*          A,
                                              unsigned long     ld_a,
                                              unsigned long     stride_a,
                                              const T*          B,
                                              unsigned long     ld_b,
                                              unsigned long     stride_b,
-                                             const T*          beta,
+                                             const T           beta,
                                              T*                C,
                                              unsigned long     ld_c,
                                              unsigned long     stride_c,
@@ -94,12 +94,12 @@ auto create_gemm_contraction_problem(rocblas_operation trans_a,
                                      unsigned long     m,
                                      unsigned long     n,
                                      unsigned long     k,
-                                     const T*          alpha,
+                                     const T           alpha,
                                      const T*          A,
                                      unsigned long     ld_a,
                                      const T*          B,
                                      unsigned long     ld_b,
-                                     const T*          beta,
+                                     const T           beta,
                                      T*                C,
                                      unsigned long     ld_c)
 {
@@ -220,19 +220,44 @@ auto ConstructTensileProblem(RocblasContractionProblem<T>* problem)
 }
 
 template <typename T>
+struct rocblas_to_tensile_type
+{
+    using type = T;
+};
+
+template <>
+struct rocblas_to_tensile_type<rocblas_float_complex>
+{
+    using type = std::complex<float>;
+};
+
+template <>
+struct rocblas_to_tensile_type<rocblas_double_complex>
+{
+    using type = std::complex<double>;
+};
+
+template <>
+struct rocblas_to_tensile_type<rocblas_half>
+{
+    using type = int32_t;
+};
+
+template <typename T>
 auto GetTensileInputs(RocblasContractionProblem<T>* problem)
 {
-    Tensile::TypedContractionInputs<T> inputs;
+    using tensile_type = typename rocblas_to_tensile_type<T>::type;
+    Tensile::TypedContractionInputs<tensile_type> inputs;
     switch(problem->problem_type)
     {
     case GEMM:
     case GEMMStridedBatch:
-        inputs.a     = problem->A;
-        inputs.b     = problem->B;
-        inputs.c     = problem->C;
-        inputs.d     = problem->C;
-        inputs.alpha = *problem->alpha;
-        inputs.beta  = *problem->beta;
+        inputs.a     = reinterpret_cast<const tensile_type*>(problem->A);
+        inputs.b     = reinterpret_cast<const tensile_type*>(problem->B);
+        inputs.c     = reinterpret_cast<tensile_type*>(problem->C);
+        inputs.d     = reinterpret_cast<tensile_type*>(problem->C);
+        inputs.alpha = static_cast<tensile_type>(problem->alpha);
+        inputs.beta  = static_cast<tensile_type>(problem->beta);
         break;
     }
 
@@ -294,37 +319,27 @@ TensileHost* createTensileHost()
 }
 
 template <typename T>
-inline rocblas_status callTensileContraction(RocblasContractionProblem<T>* problem,
-                                             TensileHost*                  host)
+rocblas_status callTensileContraction(RocblasContractionProblem<T>* problem, TensileHost* host)
 {
     TensileHostCall<T> hostCaller;
     return hostCaller.runContractionProblem(problem, host);
 }
 
-rocblas_status callTensileContraction_half(RocblasContractionProblem<rocblas_half>* problem,
-                                           TensileHost*                             host)
-{
-    return callTensileContraction<rocblas_half>(problem, host);
-}
-rocblas_status callTensileContraction_float(RocblasContractionProblem<float>* problem,
-                                            TensileHost*                      host)
-{
-    return callTensileContraction<float>(problem, host);
-}
-rocblas_status callTensileContraction_double(RocblasContractionProblem<double>* problem,
-                                             TensileHost*                       host)
-{
-    return callTensileContraction<double>(problem, host);
-}
-rocblas_status
-    callTensileContraction_float_complex(RocblasContractionProblem<rocblas_float_complex>* problem,
-                                         TensileHost*                                      host)
-{
-    return callTensileContraction<rocblas_float_complex>(problem, host);
-}
-rocblas_status callTensileContraction_double_complex(
-    RocblasContractionProblem<rocblas_double_complex>* problem, TensileHost* host)
-{
-    return callTensileContraction<rocblas_double_complex>(problem, host);
-}
+template rocblas_status callTensileContraction(RocblasContractionProblem<rocblas_half>* problem,
+                                               TensileHost*                             host);
+
+template rocblas_status callTensileContraction(RocblasContractionProblem<float>* problem,
+                                               TensileHost*                      host);
+
+template rocblas_status callTensileContraction(RocblasContractionProblem<double>* problem,
+                                               TensileHost*                       host);
+
+template rocblas_status
+    callTensileContraction(RocblasContractionProblem<rocblas_float_complex>* problem,
+                           TensileHost*                                      host);
+
+template rocblas_status
+    callTensileContraction(RocblasContractionProblem<rocblas_double_complex>* problem,
+                           TensileHost*                                       host);
+
 #endif

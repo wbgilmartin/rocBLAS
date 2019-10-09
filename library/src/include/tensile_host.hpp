@@ -21,14 +21,14 @@ public:
     unsigned long          m;
     unsigned long          n;
     unsigned long          k;
-    const T*               alpha;
+    const T                alpha;
     const T*               A;
     const unsigned long    ld_a;
     unsigned long          stride_a;
     const T*               B;
     unsigned long          ld_b;
     unsigned long          stride_b;
-    const T*               beta;
+    const T                beta;
     T*                     C;
     unsigned long          ld_c;
     unsigned long          stride_c;
@@ -40,12 +40,12 @@ public:
                               unsigned long          m,
                               unsigned long          n,
                               unsigned long          k,
-                              const T*               alpha,
+                              const T                alpha,
                               const T*               A,
                               unsigned long          ld_a,
                               const T*               B,
                               unsigned long          ld_b,
-                              const T*               beta,
+                              const T                beta,
                               T*                     C,
                               unsigned long          ld_c)
         : problem_type(problem_type)
@@ -66,7 +66,6 @@ public:
         , ld_c(ld_c)
         , stride_c(1)
         , batch_size(1)
-
     {
     }
 
@@ -76,14 +75,14 @@ public:
                               unsigned long          m,
                               unsigned long          n,
                               unsigned long          k,
-                              const T*               alpha,
+                              const T                alpha,
                               const T*               A,
                               unsigned long          ld_a,
                               unsigned long          stride_a,
                               const T*               B,
                               unsigned long          ld_b,
                               unsigned long          stride_b,
-                              const T*               beta,
+                              const T                beta,
                               T*                     C,
                               unsigned long          ld_c,
                               unsigned long          stride_c,
@@ -125,17 +124,8 @@ public:
 
 TensileHost* createTensileHost();
 
-rocblas_status callTensileContraction_half(RocblasContractionProblem<rocblas_half>* problem,
-                                           TensileHost*                             host);
-rocblas_status callTensileContraction_float(RocblasContractionProblem<float>* problem,
-                                            TensileHost*                      host);
-rocblas_status callTensileContraction_double(RocblasContractionProblem<double>* problem,
-                                             TensileHost*                       host);
-rocblas_status
-               callTensileContraction_float_complex(RocblasContractionProblem<rocblas_float_complex>* problem,
-                                                    TensileHost*                                      host);
-rocblas_status callTensileContraction_double_complex(
-    RocblasContractionProblem<rocblas_double_complex>* problem, TensileHost* host);
+template <typename T>
+rocblas_status callTensileContraction(RocblasContractionProblem<T>* problem, TensileHost* host);
 
 #endif
 

@@ -33,7 +33,7 @@ if( BUILD_WITH_TENSILE )
     set( ROCBLAS_SHARED_LIBS ON )
     set( BUILD_SHARED_LIBS OFF )
   else( )
-    list( APPEND package_targets Tensile )
+    list( APPEND package_targets Tensile TensileHost )
   endif( )
 
   set( Tensile_RUNTIME_LANGUAGE "HIP" )
@@ -198,8 +198,16 @@ target_include_directories( rocblas
 # target_include_directories( rocblas SYSTEM PUBLIC ${HIP_INCLUDE_DIRS} )
 
 if( BUILD_WITH_TENSILE )
-  target_link_libraries( rocblas PRIVATE Tensile TensileHost)
+  if( BUILD_WITH_TENSILE_HOST )
+    target_link_libraries( rocblas PRIVATE Tensile TensileHost )
+  else()
+    target_link_libraries( rocblas PRIVATE Tensile )
+  endif()
   target_compile_definitions( rocblas PRIVATE BUILD_WITH_TENSILE=1 )
+  if( BUILD_WITH_TENSILE_HOST )
+    target_compile_definitions( rocblas PUBLIC USE_TENSILE_HOST )
+  endif()
+
 endif()
 
 rocm_set_soversion( rocblas ${rocblas_SOVERSION} )
