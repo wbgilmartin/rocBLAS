@@ -41,48 +41,47 @@ constexpr auto value_category(const T& beta)
 }
 
 template <typename T>
-auto create_gemm_contraction_problem_strided(rocblas_operation trans_a,
-                                             rocblas_operation trans_b,
-                                             unsigned long     m,
-                                             unsigned long     n,
-                                             unsigned long     k,
-                                             const T           alpha,
-                                             const T*          A,
-                                             unsigned long     ld_a,
-                                             unsigned long     stride_a,
-                                             const T*          B,
-                                             unsigned long     ld_b,
-                                             unsigned long     stride_b,
-                                             const T           beta,
-                                             T*                C,
-                                             unsigned long     ld_c,
-                                             unsigned long     stride_c,
-                                             unsigned long     batchSize)
+auto create_gemm_contraction_problem_strided_batched(rocblas_operation trans_a,
+                                                     rocblas_operation trans_b,
+                                                     size_t            m,
+                                                     size_t            n,
+                                                     size_t            k,
+                                                     const T           alpha,
+                                                     const T*          A,
+                                                     size_t            ld_a,
+                                                     size_t            stride_a,
+                                                     const T*          B,
+                                                     size_t            ld_b,
+                                                     size_t            stride_b,
+                                                     const T           beta,
+                                                     T*                C,
+                                                     size_t            ld_c,
+                                                     size_t            stride_c,
+                                                     size_t            batchSize)
 {
-    bool transposeA = trans_a != rocblas_operation_none;
-    bool transposeB = trans_b != rocblas_operation_none;
+    auto transposeA = trans_a != rocblas_operation_none;
+    auto transposeB = trans_b != rocblas_operation_none;
 
-    Tensile::DataType           dt = tensile_datatype<T>;
-    Tensile::ContractionProblem problem
-        = Tensile::ContractionProblem::GEMM_Strides(transposeA,
-                                                    transposeB,
-                                                    dt,
-                                                    dt,
-                                                    dt,
-                                                    dt,
-                                                    m,
-                                                    n,
-                                                    k,
-                                                    batchSize,
-                                                    ld_a,
-                                                    stride_a,
-                                                    ld_b,
-                                                    stride_b,
-                                                    ld_c,
-                                                    stride_c,
-                                                    ld_c,
-                                                    stride_c,
-                                                    value_category(beta));
+    auto dt      = tensile_datatype<T>;
+    auto problem = Tensile::ContractionProblem::GEMM_Strides(transposeA,
+                                                             transposeB,
+                                                             dt,
+                                                             dt,
+                                                             dt,
+                                                             dt,
+                                                             m,
+                                                             n,
+                                                             k,
+                                                             batchSize,
+                                                             ld_a,
+                                                             stride_a,
+                                                             ld_b,
+                                                             stride_b,
+                                                             ld_c,
+                                                             stride_c,
+                                                             ld_c,
+                                                             stride_c,
+                                                             value_category(beta));
 
     return problem;
 }
@@ -91,20 +90,20 @@ auto create_gemm_contraction_problem_strided(rocblas_operation trans_a,
 template <typename T>
 auto create_gemm_contraction_problem(rocblas_operation trans_a,
                                      rocblas_operation trans_b,
-                                     unsigned long     m,
-                                     unsigned long     n,
-                                     unsigned long     k,
+                                     size_t            m,
+                                     size_t            n,
+                                     size_t            k,
                                      const T           alpha,
                                      const T*          A,
-                                     unsigned long     ld_a,
+                                     size_t            ld_a,
                                      const T*          B,
-                                     unsigned long     ld_b,
+                                     size_t            ld_b,
                                      const T           beta,
                                      T*                C,
-                                     unsigned long     ld_c)
+                                     size_t            ld_c)
 {
-    bool transposeA = trans_a != rocblas_operation_none;
-    bool transposeB = trans_b != rocblas_operation_none;
+    auto transposeA = trans_a != rocblas_operation_none;
+    auto transposeB = trans_b != rocblas_operation_none;
 
     Tensile::ContractionProblem::FreeIndices freeIndex(2);
     Tensile::ContractionProblem::BoundIndex  boundIndex;
@@ -114,31 +113,31 @@ auto create_gemm_contraction_problem(rocblas_operation trans_a,
     freeIndex[1].isA                                 = false;
     freeIndex[1].i = freeIndex[1].c = freeIndex[1].d = 1;
 
-    Tensile::TensorDescriptor a, b, c, d;
+    Tensile::TensorDescriptor a, b;
+    auto                      dt = tensile_datatype<T>;
 
-    Tensile::DataType dt = tensile_datatype<T>;
     if(transposeA)
     {
-        a              = Tensile::TensorDescriptor(dt, {k, m}, {1, ld_a});
+        a              = {dt, {k, m}, {1, ld_a}};
         freeIndex[0].i = 1;
         boundIndex.a   = 0;
     }
     else
     {
-        a              = Tensile::TensorDescriptor(dt, {m, k}, {1, ld_a});
+        a              = {dt, {m, k}, {1, ld_a}};
         freeIndex[0].i = 0;
         boundIndex.a   = 1;
     }
 
     if(transposeB)
     {
-        b              = Tensile::TensorDescriptor(dt, {n, k}, {1, ld_b});
+        b              = {dt, {n, k}, {1, ld_b}};
         freeIndex[1].i = 0;
         boundIndex.b   = 1;
     }
     else
     {
-        b              = Tensile::TensorDescriptor(dt, {k, n}, {1, ld_b});
+        b              = {dt, {k, n}, {1, ld_b}};
         freeIndex[1].i = 1;
         boundIndex.b   = 0;
     }
@@ -147,26 +146,32 @@ auto create_gemm_contraction_problem(rocblas_operation trans_a,
     Tensile::ContractionProblem::BatchIndices batchIndices;
     Tensile::ContractionProblem::BoundIndices boundIndices{boundIndex};
 
-    unsigned int batchCount = 1;
+    batchIndices.push_back({2, 2, 2, 2});
 
-    c = d = Tensile::TensorDescriptor(dt, {m, n}, {1, ld_c});
+    Tensile::TensorDescriptor c{dt, {m, n}, {1, ld_c}};
+
+    auto batchCount = 1;
 
     a.appendDim(batchCount);
     b.appendDim(batchCount);
-    d.appendDim(batchCount);
+    c.appendDim(batchCount);
 
-    batchIndices.push_back({2, 2, 2, 2});
+    Tensile::TensorOps aops;
+    if(is_complex<T> && trans_a == rocblas_operation_conjugate_transpose)
+        aops = {Tensile::TensorOp::Type::ComplexConjugate};
 
-    Tensile::TensorOps nop;
+    Tensile::TensorOps bops;
+    if(is_complex<T> && trans_b == rocblas_operation_conjugate_transpose)
+        bops = {Tensile::TensorOp::Type::ComplexConjugate};
 
     return Tensile::ContractionProblem(a,
-                                       nop,
+                                       aops,
                                        b,
-                                       nop,
+                                       bops,
                                        c,
-                                       nop,
-                                       d,
-                                       nop,
+                                       {},
+                                       c,
+                                       {},
                                        freeIndices,
                                        batchIndices,
                                        boundIndices,
@@ -195,23 +200,23 @@ auto ConstructTensileProblem(RocblasContractionProblem<T>* problem)
                                                              problem->ld_c);
         break;
     case GEMMStridedBatch:
-        tensile_problem = create_gemm_contraction_problem_strided(problem->trans_a,
-                                                                  problem->trans_b,
-                                                                  problem->m,
-                                                                  problem->n,
-                                                                  problem->k,
-                                                                  problem->alpha,
-                                                                  problem->A,
-                                                                  problem->ld_a,
-                                                                  problem->stride_a,
-                                                                  problem->B,
-                                                                  problem->ld_b,
-                                                                  problem->stride_b,
-                                                                  problem->beta,
-                                                                  problem->C,
-                                                                  problem->ld_c,
-                                                                  problem->stride_c,
-                                                                  problem->batch_size);
+        tensile_problem = create_gemm_contraction_problem_strided_batched(problem->trans_a,
+                                                                          problem->trans_b,
+                                                                          problem->m,
+                                                                          problem->n,
+                                                                          problem->k,
+                                                                          problem->alpha,
+                                                                          problem->A,
+                                                                          problem->ld_a,
+                                                                          problem->stride_a,
+                                                                          problem->B,
+                                                                          problem->ld_b,
+                                                                          problem->stride_b,
+                                                                          problem->beta,
+                                                                          problem->C,
+                                                                          problem->ld_c,
+                                                                          problem->stride_c,
+                                                                          problem->batch_size);
         break;
     }
 
