@@ -251,12 +251,12 @@ auto GetTensileInputs(const RocblasContractionProblem<T>& problem)
     {
     case GEMM:
     case GEMMStridedBatch:
-        inputs.a     = reinterpret_cast<const tensile_type*>(problem.A);
-        inputs.b     = reinterpret_cast<const tensile_type*>(problem.B);
-        inputs.c     = reinterpret_cast<tensile_type*>(problem.C);
-        inputs.d     = reinterpret_cast<tensile_type*>(problem.C);
-        inputs.alpha = static_cast<tensile_type>(problem.alpha);
-        inputs.beta  = static_cast<tensile_type>(problem.beta);
+        inputs.a = reinterpret_cast<const tensile_type*>(problem.A);
+        inputs.b = reinterpret_cast<const tensile_type*>(problem.B);
+        inputs.c = reinterpret_cast<tensile_type*>(problem.C);
+        inputs.d = reinterpret_cast<tensile_type*>(problem.C);
+        memcpy(&inputs.alpha, &problem.alpha, sizeof(T));
+        memcpy(&inputs.beta, &problem.beta, sizeof(T));
         break;
     }
 
