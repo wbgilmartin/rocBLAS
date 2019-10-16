@@ -15,16 +15,10 @@ _rocblas_handle::_rocblas_handle()
 {
 #if BUILD_WITH_TENSILE
     static int dummy = (tensileInitialize(), 0);
-#endif
-
 #ifdef USE_TENSILE_HOST
-    host = createTensileHost();
-    if(!host)
-        throw rocblas_status_internal_error;
-    const char* lib_path = getenv("ROCBLAS_TENSILE_LIBPATH");
-    if(!lib_path)
-        lib_path = "/opt/rocm/"; // TODO: Set default path
-    host->initializeHost(lib_path);
+    static TensileHost* hostImpl = createTensileHost();
+    host                         = hostImpl;
+#endif
 #endif
 
     // default device is active device
@@ -80,10 +74,6 @@ _rocblas_handle::~_rocblas_handle()
     }
     if(device_memory)
         (hipFree)(device_memory);
-
-#ifdef USE_TENSILE_HOST
-    delete host;
-#endif
 }
 
 /*******************************************************************************

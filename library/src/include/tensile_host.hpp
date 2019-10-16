@@ -12,9 +12,8 @@ enum ContractionProblemType
 };
 
 template <typename T>
-class RocblasContractionProblem
+struct RocblasContractionProblem
 {
-public:
     ContractionProblemType problem_type;
     rocblas_operation      trans_a;
     rocblas_operation      trans_b;
@@ -109,23 +108,16 @@ public:
     }
 };
 
-class TensileHost
+struct TensileHost
 {
-public:
-    virtual void initializeHost(const char*) {}
-};
+    template <typename T>
+    rocblas_status runContractionProblem(const RocblasContractionProblem<T>& problem);
 
-template <typename T>
-class TensileHostCall
-{
-public:
-    rocblas_status runContractionProblem(RocblasContractionProblem<T>* problem, TensileHost* host);
+protected:
+    TensileHost() = default; // Prevent instantiating this class except as base class
 };
 
 TensileHost* createTensileHost();
-
-template <typename T>
-rocblas_status callTensileContraction(RocblasContractionProblem<T>* problem, TensileHost* host);
 
 #endif
 
