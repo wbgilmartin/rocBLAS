@@ -182,7 +182,35 @@ namespace
             }
         }
 
+        rocblas_status validArgs = validateArgs(handle,
+                                                trans_a,
+                                                trans_b,
+                                                m,
+                                                n,
+                                                k,
+                                                alpha,
+                                                A,
+                                                ld_a,
+                                                stride_a,
+                                                B,
+                                                ld_b,
+                                                stride_b,
+                                                beta,
+                                                C,
+                                                ld_c,
+                                                stride_c,
+                                                b_c);
+
+        if(validArgs != rocblas_status_success)
+            return validArgs;
+
 #ifdef USE_TENSILE_HOST
+
+
+        if(m == 0 || n == 0 || k == 0 || b_c == 0)
+        {
+            return rocblas_status_success;
+        }
 
         T alpha_h;
         T beta_h;
@@ -219,28 +247,6 @@ namespace
         return handle->host->runContractionProblem(problem);
 
 #else
-        rocblas_status validArgs = validateArgs(handle,
-                                                trans_a,
-                                                trans_b,
-                                                m,
-                                                n,
-                                                k,
-                                                alpha,
-                                                A,
-                                                ld_a,
-                                                stride_a,
-                                                B,
-                                                ld_b,
-                                                stride_b,
-                                                beta,
-                                                C,
-                                                ld_c,
-                                                stride_c,
-                                                b_c);
-
-        if(validArgs != rocblas_status_success)
-            return validArgs;
-
         return rocblas_gemm_template<false, true>(handle,
                                                   trans_a,
                                                   trans_b,
