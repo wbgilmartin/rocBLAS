@@ -26,6 +26,8 @@ rocBLAS build & installation helper script
            --build_dir           Specify name of output directory (default is ./build)
       -n | --no_tensile          Build subset of library that does not require Tensile
       -u | --use-custom-version  Ignore Tensile version and just use the Tensile tag
+      -s | --tensile-host        Build with Tensile host
+      -r | --no-tensile-host     Do not build with Tensile host
            --ignore-cuda         Ignores installed cuda version and builds with rocm stack instead
            --skipldconf          Skip ld.so.conf entry
 EOF
