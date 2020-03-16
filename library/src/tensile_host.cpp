@@ -328,6 +328,34 @@ namespace
          * and default paths based on librocblas.so location and GPU *
          *************************************************************/
     public:
+        void LoadFunctions() {
+            int firstSolutionIdx = library->solutions.begin()->first;
+            std::cout << "first solution index " << firstSolutionIdx << std::endl;
+            auto iter = library->solutions.end();
+            iter--;
+            int lastSolutionIdx = iter->first;
+
+            for(int solutionIdx = firstSolutionIdx; solutionIdx <= lastSolutionIdx; solutionIdx++)
+            {
+                auto iter = library->solutions.find(solutionIdx);
+                if(iter == library->solutions.end())
+                    continue;
+                else
+                {
+                    auto solution = iter->second;
+                    if ((*solution->hardwarePredicate)((*hardware)))
+                    {
+
+                        auto name = solution->KernelName();
+                        if (name.find(isaname) != std::string::npos)
+                        {
+                            this->adapter.initKernel(name);
+                        }
+                    }
+                }
+            }
+        }
+
         TensileHostImpl()
             : hardware{Tensile::hip::GetCurrentDevice()}
         {
@@ -401,6 +429,8 @@ namespace
             library = std::dynamic_pointer_cast<
                 Tensile::MasterSolutionLibrary<Tensile::ContractionProblem>>(
                 Tensile::LoadLibraryFile<Tensile::ContractionProblem>(path));
+
+            LoadFunctions();
         }
     };
 
