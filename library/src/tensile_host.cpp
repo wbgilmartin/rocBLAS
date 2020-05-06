@@ -430,6 +430,8 @@ rocblas_status runContractionProblem(const RocblasContractionProblem<Ti, To, Tc>
     std::chrono::high_resolution_clock::time_point t7;
     std::chrono::high_resolution_clock::time_point t8;
     std::chrono::high_resolution_clock::time_point t9;
+    std::chrono::high_resolution_clock::time_point t10;
+    std::chrono::high_resolution_clock::time_point t11;
 
     t0                    = std::chrono::high_resolution_clock::now();
     TensileHost&   host   = getTensileHost();
@@ -443,7 +445,9 @@ rocblas_status runContractionProblem(const RocblasContractionProblem<Ti, To, Tc>
         auto tensile_prob = ConstructTensileProblem(prob);
         t2                = std::chrono::high_resolution_clock::now();
 
+        t10      = std::chrono::high_resolution_clock::now();
         solution = host.library->findBestSolution(tensile_prob, *host.hardware);
+        t11      = std::chrono::high_resolution_clock::now();
 
         if(!solution)
         {
@@ -500,12 +504,14 @@ rocblas_status runContractionProblem(const RocblasContractionProblem<Ti, To, Tc>
     std::chrono::duration<double> ts3 = t6 - t5;
     std::chrono::duration<double> ts4 = t8 - t7;
     std::chrono::duration<double> ts5 = t9 - t0;
+    std::chrono::duration<double> ts6 = t11 - t10;
 
     tracepoint(rocblas_tracing, trace_time, ts1.count(), "ConstructTensileProblem");
     tracepoint(rocblas_tracing, trace_time, ts2.count(), "GetTensileInputs");
     tracepoint(rocblas_tracing, trace_time, ts3.count(), "solve");
     tracepoint(rocblas_tracing, trace_time, ts4.count(), "launchKernels");
     tracepoint(rocblas_tracing, trace_time, ts5.count(), "runContractionProblem");
+    tracepoint(rocblas_tracing, trace_time, ts6.count(), "findBestSolution");
 
     return status;
 }
