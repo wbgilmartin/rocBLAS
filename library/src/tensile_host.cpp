@@ -5,6 +5,7 @@
 // The implementation of the rocBLAS<->Tensile interface layer.
 
 #include "rocblas.h"
+#include <rocBLAS-tp.hpp>
 
 #ifndef USE_TENSILE_HOST
 
@@ -418,6 +419,19 @@ namespace
 template <typename Ti, typename To, typename Tc>
 rocblas_status runContractionProblem(const RocblasContractionProblem<Ti, To, Tc>& prob)
 {
+
+    std::chrono::high_resolution_clock::time_point t0;
+    std::chrono::high_resolution_clock::time_point t1;
+    std::chrono::high_resolution_clock::time_point t2;
+    std::chrono::high_resolution_clock::time_point t3;
+    std::chrono::high_resolution_clock::time_point t4;
+    std::chrono::high_resolution_clock::time_point t5;
+    std::chrono::high_resolution_clock::time_point t6;
+    std::chrono::high_resolution_clock::time_point t7;
+    std::chrono::high_resolution_clock::time_point t8;
+    std::chrono::high_resolution_clock::time_point t9;
+
+    t0                    = std::chrono::high_resolution_clock::now();
     TensileHost&   host   = getTensileHost();
     rocblas_status status = rocblas_status_internal_error;
 
@@ -425,8 +439,11 @@ rocblas_status runContractionProblem(const RocblasContractionProblem<Ti, To, Tc>
 
     try
     {
+        t1                = std::chrono::high_resolution_clock::now();
         auto tensile_prob = ConstructTensileProblem(prob);
-        solution          = host.library->findBestSolution(tensile_prob, *host.hardware);
+        t2                = std::chrono::high_resolution_clock::now();
+
+        solution = host.library->findBestSolution(tensile_prob, *host.hardware);
 
         if(!solution)
         {
@@ -436,10 +453,16 @@ rocblas_status runContractionProblem(const RocblasContractionProblem<Ti, To, Tc>
         }
         else
         {
+            t3          = std::chrono::high_resolution_clock::now();
             auto inputs = GetTensileInputs(prob);
+            t4          = std::chrono::high_resolution_clock::now();
+
+            t5          = std::chrono::high_resolution_clock::now();
             auto result = solution->solve(tensile_prob, inputs, *host.hardware);
+            t6          = std::chrono::high_resolution_clock::now();
             auto handle = prob.handle;
 
+            t7 = std::chrono::high_resolution_clock::now();
             if(handle->startEvent && handle->stopEvent)
             {
                 hipStream_t stream;
@@ -450,6 +473,7 @@ rocblas_status runContractionProblem(const RocblasContractionProblem<Ti, To, Tc>
             {
                 host.adapter.launchKernels(result);
             }
+            t8 = std::chrono::high_resolution_clock::now();
 
             status = rocblas_status_success;
         }
@@ -469,6 +493,19 @@ rocblas_status runContractionProblem(const RocblasContractionProblem<Ti, To, Tc>
                             << std::endl,
                0);
     }
+
+    t9                                = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> ts1 = t2 - t1;
+    std::chrono::duration<double> ts2 = t4 - t3;
+    std::chrono::duration<double> ts3 = t6 - t5;
+    std::chrono::duration<double> ts4 = t8 - t7;
+    std::chrono::duration<double> ts5 = t9 - t0;
+
+    tracepoint(rocblas_tracing, trace_time, ts1.count(), "ConstructTensileProblem");
+    tracepoint(rocblas_tracing, trace_time, ts2.count(), "GetTensileInputs");
+    tracepoint(rocblas_tracing, trace_time, ts3.count(), "solve");
+    tracepoint(rocblas_tracing, trace_time, ts4.count(), "launchKernels");
+    tracepoint(rocblas_tracing, trace_time, ts5.count(), "runContractionProblem");
 
     return status;
 }
