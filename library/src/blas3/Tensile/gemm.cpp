@@ -4,6 +4,8 @@
 #include "gemm.hpp"
 #include "logging.h"
 
+#include <rocBLAS-tp.hpp>
+
 namespace
 {
     template <typename>
@@ -38,6 +40,13 @@ namespace
                            T*                C,
                            rocblas_int       ld_c)
     {
+        std::chrono::high_resolution_clock::time_point t0;
+        std::chrono::high_resolution_clock::time_point t1;
+        std::chrono::high_resolution_clock::time_point t2;
+        std::chrono::high_resolution_clock::time_point t3;
+        std::chrono::high_resolution_clock::time_point t4;
+
+        t0 = std::chrono::high_resolution_clock::now();
         if(!handle)
             return rocblas_status_invalid_handle;
 
@@ -137,33 +146,47 @@ namespace
                             ld_c);
         }
 
+        t1             = std::chrono::high_resolution_clock::now();
         auto validArgs = validateArgs(
             handle, trans_a, trans_b, m, n, k, alpha, A, ld_a, B, ld_b, beta, C, ld_c);
+        t2 = std::chrono::high_resolution_clock::now();
 
         if(validArgs != rocblas_status_continue)
             return validArgs;
 
-        return rocblas_gemm_template<false, false>(handle,
-                                                   trans_a,
-                                                   trans_b,
-                                                   m,
-                                                   n,
-                                                   k,
-                                                   alpha,
-                                                   A,
-                                                   0,
-                                                   ld_a,
-                                                   0,
-                                                   B,
-                                                   0,
-                                                   ld_b,
-                                                   0,
-                                                   beta,
-                                                   C,
-                                                   0,
-                                                   ld_c,
-                                                   0,
-                                                   1);
+        t3               = std::chrono::high_resolution_clock::now();
+        auto call_result = rocblas_gemm_template<false, false>(handle,
+                                                               trans_a,
+                                                               trans_b,
+                                                               m,
+                                                               n,
+                                                               k,
+                                                               alpha,
+                                                               A,
+                                                               0,
+                                                               ld_a,
+                                                               0,
+                                                               B,
+                                                               0,
+                                                               ld_b,
+                                                               0,
+                                                               beta,
+                                                               C,
+                                                               0,
+                                                               ld_c,
+                                                               0,
+                                                               1);
+        t4               = std::chrono::high_resolution_clock::now();
+
+        std::chrono::duration<double> ts1 = t2 - t1;
+        std::chrono::duration<double> ts2 = t4 - t3;
+        std::chrono::duration<double> ts3 = t4 - t0;
+
+        tracepoint(rocblas_tracing, trace_time, ts1.count(), "validateArgs");
+        tracepoint(rocblas_tracing, trace_time, ts2.count(), "rocblas_gemm_template");
+        tracepoint(rocblas_tracing, trace_time, ts3.count(), "rocblas_gemm_impl");
+
+        return call_result;
     }
 }
 

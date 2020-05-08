@@ -7,6 +7,7 @@
 #define _GEMM_HOST_HPP_
 
 #include "handle.h"
+#include <rocBLAS-tp.hpp>
 
 #ifdef USE_TENSILE_HOST
 
@@ -388,6 +389,10 @@ inline rocblas_status call_tensile(rocblas_handle    handle,
                                    rocblas_int       batch_count = 1)
 
 {
+    rocblas_status                                 rb_status;
+    std::chrono::high_resolution_clock::time_point t1;
+    std::chrono::high_resolution_clock::time_point t2;
+    t1 = std::chrono::high_resolution_clock::now();
 
 #ifdef USE_TENSILE_HOST
 
@@ -410,30 +415,35 @@ inline rocblas_status call_tensile(rocblas_handle    handle,
                                          stride_c,
                                          batch_count};
 
-    return runContractionProblem(problem);
+    rb_status = runContractionProblem(problem);
 
 #else // USE_TENSILE_HOST
 
-    return tensile_helper(*alpha,
-                          *beta,
-                          A,
-                          B,
-                          C,
-                          trans_a,
-                          trans_b,
-                          ld_c,
-                          stride_c,
-                          ld_a,
-                          stride_a,
-                          ld_b,
-                          stride_b,
-                          m,
-                          n,
-                          batch_count,
-                          k,
-                          handle);
+    rb_status = tensile_helper(*alpha,
+                               *beta,
+                               A,
+                               B,
+                               C,
+                               trans_a,
+                               trans_b,
+                               ld_c,
+                               stride_c,
+                               ld_a,
+                               stride_a,
+                               ld_b,
+                               stride_b,
+                               m,
+                               n,
+                               batch_count,
+                               k,
+                               handle);
 
 #endif // USE_TENSILE_HOST
+    t2                                = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> ts1 = t2 - t1;
+    tracepoint(rocblas_tracing, trace_time, ts2.count(), "call_tensile");
+
+    return rb_status;
 }
 
 /*******************************************************************************
