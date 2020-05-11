@@ -46,6 +46,8 @@ namespace
         std::chrono::high_resolution_clock::time_point t3;
         std::chrono::high_resolution_clock::time_point t4;
 
+        tracepoint(rocblas_tracing, trace_info, "rocblas_gemm_impl");
+
         t0 = std::chrono::high_resolution_clock::now();
         if(!handle)
             return rocblas_status_invalid_handle;

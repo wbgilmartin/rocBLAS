@@ -394,6 +394,8 @@ inline rocblas_status call_tensile(rocblas_handle    handle,
     std::chrono::high_resolution_clock::time_point t2;
     t1 = std::chrono::high_resolution_clock::now();
 
+    tracepoint(rocblas_tracing, trace_info, "call_tensile");
+
 #ifdef USE_TENSILE_HOST
 
     RocblasContractionProblem<T> problem{handle,
@@ -532,6 +534,8 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
                                                              rocblas_stride    stride_c,
                                                              rocblas_int       batch_count)
 {
+    //tracepoint(rocblas_tracing, trace_info, "rocblas_gemm_template");
+
     // Early exit. Note: k==0 is not an early exit, since C still needs to be multiplied by beta.
     if(m == 0 || n == 0 || batch_count == 0)
         return rocblas_status_success;
@@ -556,6 +560,7 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
     rocblas_status status = rocblas_status_success;
     if(BATCHED)
     {
+        tracepoint(rocblas_tracing, trace_info, "rocblas_gemm_template: BATCHED");
         // We cannot do this with a device array, so array of pointers must be on host for now
 
         // Host arrays of device pointers.
@@ -570,6 +575,7 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
         RETURN_IF_HIP_ERROR(
             hipMemcpy(&hostC[0], C, sizeof(T*) * batch_count, hipMemcpyDeviceToHost));
 
+        tracepoint(rocblas_tracing, int_value, batch_count, "rocblas_gemm_template: batch count");
         for(rocblas_int b = 0; b < batch_count; b++)
         {
             status = call_tensile(handle,
@@ -596,10 +602,13 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
     }
     else
     {
+        tracepoint(rocblas_tracing, trace_info, "rocblas_gemm_template: NOT BATCHED");
         // If STRIDED == false, compute the strides from the sizes of the arrays
         // so that they are interpreted as consecutive matrices in memory
         if(!STRIDED)
         {
+
+            tracepoint(rocblas_tracing, trace_info, "rocblas_gemm_template: NOT STRIDED");
             stride_a = ld_a * (trans_a == rocblas_operation_none ? k : m);
             stride_b = ld_b * (trans_b == rocblas_operation_none ? n : k);
             stride_c = ld_c * n;
