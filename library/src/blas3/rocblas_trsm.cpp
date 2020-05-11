@@ -46,6 +46,8 @@ namespace
                                         const T*          supplied_invA      = nullptr,
                                         rocblas_int       supplied_invA_size = 0)
     {
+        tracepoint(rocblas_tracing, trace_info, "rocblas_trsm_ex_impl");
+
         if(!handle)
             return rocblas_status_invalid_handle;
 
