@@ -441,7 +441,7 @@ inline rocblas_status call_tensile(rocblas_handle    handle,
 #endif // USE_TENSILE_HOST
     t2                                = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> ts1 = t2 - t1;
-    tracepoint(rocblas_tracing, trace_time, ts2.count(), "call_tensile");
+    tracepoint(rocblas_tracing, trace_time, ts1.count(), "call_tensile");
 
     return rb_status;
 }
