@@ -63,7 +63,7 @@ namespace
                          rocblas_int    offset_src = 0,
                          rocblas_int    offset_dst = 0)
     {
-        tracepoint(rocblas_tracing, int_value, "copy_block_unit");
+        tracepoint(rocblas_tracing, trace_info, "copy_block_unit");
 
         rocblas_int blocksX = (m - 1) / 128 + 1; // parameters for device kernel
         rocblas_int blocksY = (n - 1) / 8 + 1;
@@ -98,7 +98,7 @@ namespace
                                     T              val,
                                     rocblas_int    offset_a)
     {
-        tracepoint(rocblas_tracing, int_value, "set_matrix_trsm");
+        tracepoint(rocblas_tracing, trace_info, "set_matrix_trsm");
         T* xa = load_ptr_batch(a, hipBlockIdx_z, offset_a, stride_a);
 
         size_t tx = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
@@ -120,7 +120,7 @@ namespace
                         T              val        = 0.0,
                         rocblas_int    offset_src = 0)
     {
-        tracepoint(rocblas_tracing, int_value, "set_block_unit");
+        tracepoint(rocblas_tracing, trace_info, "set_block_unit");
 
         rocblas_int blocksX = (m - 1) / 128 + 1; // parameters for device kernel
         rocblas_int blocksY = (n - 1) / 8 + 1;
@@ -168,7 +168,7 @@ namespace
     {
         rocblas_int i, jb;
 
-        tracepoint(rocblas_tracing, int_value, "rocblas_trsm_left");
+        tracepoint(rocblas_tracing, trace_info, "rocblas_trsm_left");
 
         // transB is always non-transpose
         static constexpr rocblas_operation transB = rocblas_operation_none;
@@ -629,7 +629,7 @@ namespace
     {
         rocblas_int i, jb;
 
-        tracepoint(rocblas_tracing, int_value, "rocblas_trsm_right");
+        tracepoint(rocblas_tracing, trace_info, "rocblas_trsm_right");
 
         // transB is always non-transpose
         static constexpr rocblas_operation transB = rocblas_operation_none;
@@ -1076,7 +1076,7 @@ namespace
         size_t W          = 1 + (bsize - 1) / B_chunk_size;
         bool   arch_lt906 = handle->device_arch_id() < 906;
 
-        tracepoint(rocblas_tracing, int_value, "special_trsm_template");
+        tracepoint(rocblas_tracing, trace_info, "special_trsm_template");
 
         for(size_t w = 0; w < W; w++)
         {
@@ -1356,7 +1356,7 @@ rocblas_status rocblas_trsm_template_mem(rocblas_handle handle,
     rocblas_status perf_status = rocblas_status_success;
     rocblas_int    k           = side == rocblas_side_left ? m : n;
 
-    tracepoint(rocblas_tracing, int_value, "rocblas_trsm_template_mem");
+    tracepoint(rocblas_tracing, trace_info, "rocblas_trsm_template_mem");
 
     // Whether size is an exact multiple of blocksize
     const bool exact_blocks = (k % BLOCK) == 0;
@@ -1497,7 +1497,7 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_trsm_template(rocblas_handle    h
                                                              rocblas_int    offset_invA        = 0,
                                                              rocblas_stride stride_invA        = 0)
 {
-    tracepoint(rocblas_tracing, int_value, "rocblas_trsm_template");
+    tracepoint(rocblas_tracing, trace_info, "rocblas_trsm_template");
 
     // return rocblas_status_not_implemented;
     if(batch_count == 0)
