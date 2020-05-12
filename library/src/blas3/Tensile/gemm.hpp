@@ -468,6 +468,12 @@ inline rocblas_status validateArgs(rocblas_handle    handle,
                                    rocblas_int       ld_c,
                                    rocblas_int       batch_count = 1)
 {
+    std::chrono::high_resolution_clock::time_point t0;
+    std::chrono::high_resolution_clock::time_point t1;
+
+    tracepoint(rocblas_tracing, trace_info, "validateArgs");
+
+    t0 = std::chrono::high_resolution_clock::now();
     // handle must be valid
     if(!handle)
         return rocblas_status_invalid_handle;
@@ -502,6 +508,10 @@ inline rocblas_status validateArgs(rocblas_handle    handle,
     if(!a || !b || !c)
         return rocblas_status_invalid_pointer;
 
+    t1                                = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> ts1 = t2 - t1;
+    tracepoint(rocblas_tracing, trace_time, ts1.count(), "validateArgs");
+
     return rocblas_status_continue;
 }
 
@@ -534,8 +544,16 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
                                                              rocblas_stride    stride_c,
                                                              rocblas_int       batch_count)
 {
-    //tracepoint(rocblas_tracing, trace_info, "rocblas_gemm_template");
+    std::chrono::high_resolution_clock::time_point t0;
+    std::chrono::high_resolution_clock::time_point t1;
+    std::chrono::high_resolution_clock::time_point t2;
+    std::chrono::high_resolution_clock::time_point t3;
+    std::chrono::high_resolution_clock::time_point t4;
+    std::chrono::high_resolution_clock::time_point t5;
 
+    tracepoint(rocblas_tracing, trace_info, "rocblas_gemm_template");
+
+    t0 = std::chrono::high_resolution_clock::now();
     // Early exit. Note: k==0 is not an early exit, since C still needs to be multiplied by beta.
     if(m == 0 || n == 0 || batch_count == 0)
         return rocblas_status_success;
@@ -545,6 +563,7 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
     // Right now Tensile requires alpha and beta to be passed by value on host.
     // If in device pointer mode, copy alpha and beta to host.
     // TODO: Make this asynchronous, putting synchronization in closer to Tensile call.
+    t1 = std::chrono::high_resolution_clock::now();
     if(handle->pointer_mode == rocblas_pointer_mode_device)
     {
         RETURN_IF_HIP_ERROR(hipMemcpy(&alpha_h, alpha, sizeof(T), hipMemcpyDeviceToHost));
@@ -552,6 +571,7 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
         alpha = &alpha_h;
         beta  = &beta_h;
     }
+    t2 = std::chrono::high_resolution_clock::now();
 
     // When beta == 1 and either k == 0 or alpha == 0, the operation is a no-op
     if(*beta == 1 && (k == 0 || *alpha == 0))
@@ -605,6 +625,7 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
         tracepoint(rocblas_tracing, trace_info, "rocblas_gemm_template: NOT BATCHED");
         // If STRIDED == false, compute the strides from the sizes of the arrays
         // so that they are interpreted as consecutive matrices in memory
+        t3 = std::chrono::high_resolution_clock::now();
         if(!STRIDED)
         {
 
@@ -613,6 +634,7 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
             stride_b = ld_b * (trans_b == rocblas_operation_none ? n : k);
             stride_c = ld_c * n;
         }
+        t4 = std::chrono::high_resolution_clock::now();
 
         // The (T*) casts are to prevent template deduction errors when BATCHED==true and the A, B, C
         // pointers are pointers to arrays of pointers. constexpr if(BATCHED) above could avoid this.
@@ -635,6 +657,17 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
                               k,
                               batch_count);
     }
+
+    t5 = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> ts1 = t2 - t1;
+    std::chrono::duration<double> ts2 = t4 - t3;
+    std::chrono::duration<double> ts3 = t5 - t0;
+
+    tracepoint(
+        rocblas_tracing, trace_time, ts1.count(), "rocblas_gemm_template:hipMemcpyDeviceToHost");
+    tracepoint(rocblas_tracing, trace_time, ts2.count(), "rocblas_gemm_template:!STRIDED");
+    tracepoint(rocblas_tracing, trace_time, ts3.count(), "rocblas_gemm_template");
 
     return status;
 }
