@@ -509,7 +509,7 @@ inline rocblas_status validateArgs(rocblas_handle    handle,
         return rocblas_status_invalid_pointer;
 
     t1                                = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> ts1 = t2 - t1;
+    std::chrono::duration<double> ts1 = t1 - t0;
     tracepoint(rocblas_tracing, trace_time, ts1.count(), "validateArgs");
 
     return rocblas_status_continue;

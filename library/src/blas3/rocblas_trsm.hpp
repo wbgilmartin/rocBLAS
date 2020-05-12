@@ -7,6 +7,8 @@
 #include "../blas_ex/rocblas_gemm_ex.hpp"
 #include "trtri_trsm.hpp"
 
+#include <rocBLAS-tp.hpp>
+
 ///////////////////// //////
 ///// helper templates /////
 ////////////////////////////
@@ -159,6 +161,8 @@ namespace
                                      rocblas_stride    stride_X)
     {
         rocblas_int i, jb;
+
+        tracepoint(rocblas_tracing, trace_info, "rocblas_trsm_left");
 
         // transB is always non-transpose
         static constexpr rocblas_operation transB = rocblas_operation_none;
@@ -618,6 +622,8 @@ namespace
                                       rocblas_stride    stride_X)
     {
         rocblas_int i, jb;
+
+        tracepoint(rocblas_tracing, trace_info, "rocblas_trsm_right");
 
         // transB is always non-transpose
         static constexpr rocblas_operation transB = rocblas_operation_none;
@@ -1481,6 +1487,8 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_trsm_template(rocblas_handle    h
                                                              rocblas_int    offset_invA        = 0,
                                                              rocblas_stride stride_invA        = 0)
 {
+    tracepoint(rocblas_tracing, trace_info, "rocblas_tsrm_template");
+
     // return rocblas_status_not_implemented;
     if(batch_count == 0)
         return rocblas_status_success;

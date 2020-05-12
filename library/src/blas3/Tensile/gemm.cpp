@@ -4,7 +4,7 @@
 #include "gemm.hpp"
 #include "logging.h"
 
-//#include <rocBLAS-tp.hpp>
+#include <rocBLAS-tp.hpp>
 
 namespace
 {
@@ -46,7 +46,7 @@ namespace
         //       std::chrono::high_resolution_clock::time_point t3;
         //        std::chrono::high_resolution_clock::time_point t4;
 
-        //        tracepoint(rocblas_tracing, trace_info, "rocblas_gemm_impl");
+        tracepoint(rocblas_tracing, trace_info, "rocblas_gemm_impl");
 
         //        t0 = std::chrono::high_resolution_clock::now();
         if(!handle)
