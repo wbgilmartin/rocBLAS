@@ -102,6 +102,7 @@ set(rocblas_no_tensile_test_source
     syr2k_gtest.cpp
     syrkx_gtest.cpp
     geam_gtest.cpp
+    dgmm_gtest.cpp
     )
 
 if(LINK_BLIS)
@@ -116,7 +117,7 @@ set( rocblas_benchmark_common
       ../common/rocblas_parse_data.cpp
     )
 
-add_executable( rocblas-test ${rocblas_no_tensile_test_source} ${rocblas_test_source} ${rocblas_benchmark_common} )
+add_executable( rocblas-test ${rocblas_f90_source} ${rocblas_no_tensile_test_source} ${rocblas_test_source} ${rocblas_benchmark_common} )
 
 if( BUILD_WITH_TENSILE )
     target_compile_definitions( rocblas-test PRIVATE BUILD_WITH_TENSILE=1 GOOGLE_TEST )
@@ -142,17 +143,23 @@ target_include_directories( rocblas-test
     $<BUILD_INTERFACE:${BLIS_INCLUDE_DIR}>
     )
 
-set( BLIS_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/build/deps/blis/include/blis )
-set( BLIS_LIBRARY ${CMAKE_SOURCE_DIR}/build/deps/blis/lib/libblis.so )
+set( BLIS_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/${BUILD_DIR}/deps/blis/include/blis )
+set( BLIS_LIBRARY ${CMAKE_SOURCE_DIR}/${BUILD_DIR}/deps/blis/lib/libblis.so )
 
 if( OS_ID_rhel OR OS_ID_sles OR OS_ID_centos)
     if( OS_ID_rhel OR OS_ID_centos)
-        if( CXX_VERSION_STRING MATCHES "clang")
-           set( XXX_OPENMP_INCLUDE_DIR /opt/rh/devtoolset-7/root/usr/lib/gcc/x86_64-redhat-linux/7/include )
+        if( EXISTS "/usr/lib/gcc/x86_64-redhat-linux/8/" )
+            set( ROCM_OPENMP_PATH /usr/lib/gcc/x86_64-redhat-linux/8 )
+        else()
+            set( ROCM_OPENMP_PATH /opt/rh/devtoolset-7/root/usr/lib/gcc/x86_64-redhat-linux/7 )
         endif()
+
         # defer OpenMP include as search order must come after clang
-        set( XXX_OPENMP_INCLUDE_DIR /opt/rh/devtoolset-7/root/usr/lib/gcc/x86_64-redhat-linux/7/include )
-        set( OPENMP_LIBRARY /opt/rh/devtoolset-7/root/usr/lib/gcc/x86_64-redhat-linux/7/libgomp.so )
+        set( XXX_OPENMP_INCLUDE_DIR ${ROCM_OPENMP_PATH}/include )
+        set( OPENMP_LIBRARY ${ROCM_OPENMP_PATH}/libgomp.so )
+        if( CXX_VERSION_STRING MATCHES "clang")
+            set( XXX_OPENMP_INCLUDE_DIR ${ROCM_OPENMP_PATH}/include )
+        endif()
     else()
     #SLES
         set( OPENMP_INCLUDE_DIR /usr/lib64/gcc/x86_64-suse-linux/7/include/ )
@@ -184,9 +191,9 @@ if( OS_ID_rhel OR OS_ID_sles OR OS_ID_centos)
         )
 
     if(LINK_BLIS)
-      target_link_libraries( rocblas-test PRIVATE ${OPENMP_LIBRARY} ${BLIS_LIBRARY} ${Boost_LIBRARIES} ${GTEST_LIBRARIES} cblas lapack roc::rocblas )
+      target_link_libraries( rocblas-test PRIVATE ${OPENMP_LIBRARY} ${BLIS_LIBRARY} ${Boost_LIBRARIES} ${GTEST_LIBRARIES} cblas lapack roc::rocblas rocblas_fortran_client )
     else()
-      target_link_libraries( rocblas-test PRIVATE ${OPENMP_LIBRARY} ${Boost_LIBRARIES} ${GTEST_LIBRARIES} cblas lapack roc::rocblas )
+      target_link_libraries( rocblas-test PRIVATE ${OPENMP_LIBRARY} ${Boost_LIBRARIES} ${GTEST_LIBRARIES} cblas lapack roc::rocblas rocblas_fortran_client )
     endif()
 else()
     # External header includes included as system files
@@ -200,9 +207,9 @@ else()
         $<BUILD_INTERFACE:${BLIS_INCLUDE_DIR}>
     )
     if(LINK_BLIS)
-      target_link_libraries( rocblas-test PRIVATE ${GTEST_LIBRARIES} ${Boost_LIBRARIES} ${BLIS_LIBRARY} cblas lapack roc::rocblas )
+      target_link_libraries( rocblas-test PRIVATE ${GTEST_LIBRARIES} ${Boost_LIBRARIES} ${BLIS_LIBRARY} cblas lapack roc::rocblas rocblas_fortran_client )
     else()
-      target_link_libraries( rocblas-test PRIVATE ${GTEST_LIBRARIES} ${Boost_LIBRARIES} cblas lapack roc::rocblas )
+      target_link_libraries( rocblas-test PRIVATE ${GTEST_LIBRARIES} ${Boost_LIBRARIES} cblas lapack roc::rocblas rocblas_fortran_client )
     endif()
 endif()
 
@@ -223,7 +230,7 @@ endif( )
 set( ROCBLAS_TEST_DATA "${PROJECT_BINARY_DIR}/staging/rocblas_gtest.data")
 add_custom_command( OUTPUT "${ROCBLAS_TEST_DATA}"
                     COMMAND ../common/rocblas_gentest.py -I ../include rocblas_gtest.yaml -o "${ROCBLAS_TEST_DATA}"
-                    DEPENDS ../common/rocblas_gentest.py ../include/rocblas_common.yaml *.yaml
+                    DEPENDS ../common/rocblas_gentest.py ../include/rocblas_common.yaml blas1_gtest.yaml dgmm_gtest.yaml gbmv_gtest.yaml geam_gtest.yaml gemm_batched_gtest.yaml gemm_gtest.yaml gemm_strided_batched_gtest.yaml gemv_gtest.yaml ger_gtest.yaml geruc_gtest.yaml hbmv_gtest.yaml hemm_gtest.yaml hemv_gtest.yaml her2_gtest.yaml her2k_gtest.yaml her_gtest.yaml herk_gtest.yaml herkx_gtest.yaml hpmv_gtest.yaml hpr2_gtest.yaml hpr_gtest.yaml known_bugs.yaml logging_mode_gtest.yaml ostream_threadsafety_gtest.yaml rocblas_gtest.yaml sbmv_gtest.yaml set_get_matrix_gtest.yaml set_get_pointer_mode_gtest.yaml set_get_vector_gtest.yaml spmv_gtest.yaml spr2_gtest.yaml spr_gtest.yaml symm_gtest.yaml symv_gtest.yaml syr2_gtest.yaml syr2k_gtest.yaml syr_gtest.yaml syrk_gtest.yaml syrkx_gtest.yaml tbmv_gtest.yaml tbsv_gtest.yaml tpmv_gtest.yaml tpsv_gtest.yaml trmm_gtest.yaml trmv_gtest.yaml trsm_gtest.yaml trsv_gtest.yaml trtri_gtest.yaml
                     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" )
 add_custom_target( rocblas-test-data
                    DEPENDS "${ROCBLAS_TEST_DATA}" )
@@ -254,3 +261,4 @@ endif( )
 
 set_target_properties( rocblas-test PROPERTIES CXX_EXTENSIONS NO )
 set_target_properties( rocblas-test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
+target_compile_definitions( rocblas-test PRIVATE ROCM_USE_FLOAT16 )

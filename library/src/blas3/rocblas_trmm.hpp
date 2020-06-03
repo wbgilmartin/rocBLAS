@@ -17,7 +17,7 @@ __global__ void set_matrix_zero_if_alpha_zero_kernel(rocblas_int    m,
                                                      TPtr           Aa,
                                                      ptrdiff_t      offsetA,
                                                      rocblas_int    lda,
-                                                     rocblas_int    strideA)
+                                                     rocblas_stride strideA)
 {
     ptrdiff_t tx = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
     ptrdiff_t ty = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
@@ -41,7 +41,7 @@ rocblas_status set_matrix_zero_if_alpha_zero_template(rocblas_handle handle,
                                                       TPtr           A,
                                                       rocblas_int    offsetA,
                                                       rocblas_int    lda,
-                                                      rocblas_int    strideA,
+                                                      rocblas_stride strideA,
                                                       rocblas_int    batch_count)
 {
     // Quick return if possible. Not Argument error
@@ -104,23 +104,23 @@ template <bool        BATCHED,
           typename TScal,
           typename TConstPtr,
           typename TPtr>
-rocblas_status rocblas_trmm_template(rocblas_handle    handle,
-                                     rocblas_side      side,
-                                     rocblas_fill      uplo,
-                                     rocblas_operation transa,
-                                     rocblas_diagonal  diag,
-                                     rocblas_int       m,
-                                     rocblas_int       n,
-                                     TScal             alpha,
-                                     TConstPtr         a,
-                                     rocblas_int       lda,
-                                     rocblas_stride    stride_a,
-                                     TPtr              b,
-                                     rocblas_int       ldb,
-                                     rocblas_stride    stride_b,
-                                     rocblas_int       batch_count,
-                                     TPtr              workspace,
-                                     rocblas_stride    stride_w)
+ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_trmm_template(rocblas_handle    handle,
+                                                             rocblas_side      side,
+                                                             rocblas_fill      uplo,
+                                                             rocblas_operation transa,
+                                                             rocblas_diagonal  diag,
+                                                             rocblas_int       m,
+                                                             rocblas_int       n,
+                                                             TScal             alpha,
+                                                             TConstPtr         a,
+                                                             rocblas_int       lda,
+                                                             rocblas_stride    stride_a,
+                                                             TPtr              b,
+                                                             rocblas_int       ldb,
+                                                             rocblas_stride    stride_b,
+                                                             rocblas_int       batch_count,
+                                                             TPtr              workspace,
+                                                             rocblas_stride    stride_w)
 {
     //
     // Level 3 Blas routine.

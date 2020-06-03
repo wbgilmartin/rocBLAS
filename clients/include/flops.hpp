@@ -25,6 +25,23 @@ inline size_t sym_tri_count(rocblas_int n)
  * ===========================================================================
  */
 
+// asum
+template <typename T>
+constexpr double asum_gflop_count(rocblas_int n)
+{
+    return (2.0 * n) / 1e9;
+}
+template <>
+constexpr double asum_gflop_count<rocblas_float_complex>(rocblas_int n)
+{
+    return (4.0 * n) / 1e9;
+}
+template <>
+constexpr double asum_gflop_count<rocblas_double_complex>(rocblas_int n)
+{
+    return (4.0 * n) / 1e9;
+}
+
 // axpy
 template <typename T>
 constexpr double axpy_gflop_count(rocblas_int n)
@@ -40,6 +57,13 @@ template <>
 constexpr double axpy_gflop_count<rocblas_double_complex>(rocblas_int n)
 {
     return (8.0 * n) / 1e9;
+}
+
+// copy
+template <typename T>
+constexpr double copy_gflop_count(rocblas_int n)
+{
+    return (n) / 1e9; // no actual operations but reporting to be consistent
 }
 
 // dot
@@ -505,6 +529,37 @@ template <typename T>
 constexpr double geam_gflop_count(rocblas_int m, rocblas_int n)
 {
     return (3.0 * m * n) / 1e9;
+}
+
+template <>
+constexpr double geam_gflop_count<rocblas_float_complex>(rocblas_int m, rocblas_int n)
+{
+    return (14.0 * m * n) / 1e9;
+}
+
+template <>
+constexpr double geam_gflop_count<rocblas_double_complex>(rocblas_int m, rocblas_int n)
+{
+    return (14.0 * m * n) / 1e9;
+}
+
+/* \brief floating point counts of DGMM */
+template <typename T>
+constexpr double dgmm_gflop_count(rocblas_int m, rocblas_int n)
+{
+    return (m * n) / 1e9;
+}
+
+template <>
+constexpr double dgmm_gflop_count<rocblas_float_complex>(rocblas_int m, rocblas_int n)
+{
+    return (6 * m * n) / 1e9;
+}
+
+template <>
+constexpr double dgmm_gflop_count<rocblas_double_complex>(rocblas_int m, rocblas_int n)
+{
+    return (6 * m * n) / 1e9;
 }
 
 /* \brief floating point counts of HEMM */

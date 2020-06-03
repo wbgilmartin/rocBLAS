@@ -37,13 +37,17 @@ void testing_iamax_iamin_bad_arg(const Arguments& arg, rocblas_iamax_iamin_t<T> 
 template <typename T>
 void testing_iamax_bad_arg(const Arguments& arg)
 {
-    testing_iamax_iamin_bad_arg<T>(arg, rocblas_iamax<T>);
+    const bool FORTRAN          = arg.fortran;
+    auto       rocblas_iamax_fn = FORTRAN ? rocblas_iamax<T, true> : rocblas_iamax<T, false>;
+    testing_iamax_iamin_bad_arg<T>(arg, rocblas_iamax_fn);
 }
 
 template <typename T>
 void testing_iamin_bad_arg(const Arguments& arg)
 {
-    testing_iamax_iamin_bad_arg<T>(arg, rocblas_iamin<T>);
+    const bool FORTRAN          = arg.fortran;
+    auto       rocblas_iamin_fn = FORTRAN ? rocblas_iamin<T, true> : rocblas_iamin<T, false>;
+    testing_iamax_iamin_bad_arg<T>(arg, rocblas_iamin_fn);
 }
 
 template <typename T, void REFBLAS_FUNC(rocblas_int, const T*, rocblas_int, rocblas_int*)>
@@ -63,11 +67,8 @@ void testing_iamax_iamin(const Arguments& arg, rocblas_iamax_iamin_t<T> func)
     // check to prevent undefined memory allocation error
     if(N <= 0 || incx <= 0)
     {
-        static const size_t safe_size = 100; // arbritrarily set to 100
-        device_vector<T>    dx(safe_size);
-        CHECK_DEVICE_ALLOCATION(dx.memcheck());
-
-        CHECK_ROCBLAS_ERROR(func(handle, N, dx, incx, &h_rocblas_result_1));
+        CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host));
+        CHECK_ROCBLAS_ERROR(func(handle, N, nullptr, incx, &h_rocblas_result_1));
 
 #ifdef GOOGLE_TEST
         EXPECT_EQ(h_rocblas_result_1, 0);
@@ -167,11 +168,15 @@ void testing_iamax_iamin(const Arguments& arg, rocblas_iamax_iamin_t<T> func)
 template <typename T>
 void testing_iamax(const Arguments& arg)
 {
-    testing_iamax_iamin<T, rocblas_iamax_iamin_ref::iamax<T>>(arg, rocblas_iamax<T>);
+    const bool FORTRAN          = arg.fortran;
+    auto       rocblas_iamax_fn = FORTRAN ? rocblas_iamax<T, true> : rocblas_iamax<T, false>;
+    testing_iamax_iamin<T, rocblas_iamax_iamin_ref::iamax<T>>(arg, rocblas_iamax_fn);
 }
 
 template <typename T>
 void testing_iamin(const Arguments& arg)
 {
-    testing_iamax_iamin<T, rocblas_iamax_iamin_ref::iamin<T>>(arg, rocblas_iamin<T>);
+    const bool FORTRAN          = arg.fortran;
+    auto       rocblas_iamin_fn = FORTRAN ? rocblas_iamin<T, true> : rocblas_iamin<T, false>;
+    testing_iamax_iamin<T, rocblas_iamax_iamin_ref::iamin<T>>(arg, rocblas_iamin_fn);
 }

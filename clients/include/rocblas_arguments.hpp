@@ -71,6 +71,8 @@ struct Arguments
     rocblas_int stride_x;
     rocblas_int stride_y;
 
+    bool fortran;
+
     rocblas_int norm_check;
     rocblas_int unit_check;
     rocblas_int timing;
@@ -131,6 +133,7 @@ struct Arguments
     OPER(stride_d) SEP               \
     OPER(stride_x) SEP               \
     OPER(stride_y) SEP               \
+    OPER(fortran) SEP                \
     OPER(norm_check) SEP             \
     OPER(unit_check) SEP             \
     OPER(timing) SEP                 \
@@ -237,7 +240,7 @@ struct ArgumentsHelper
     // e_alpha and e_beta get turned into negative sentinel value specializations
 #define APPLY(NAME)                                                                         \
     template <>                                                                             \
-    static constexpr auto                                                                   \
+    ROCBLAS_CLANG_STATIC constexpr auto                                                     \
         apply<e_##NAME == e_alpha ? rocblas_argument(-1)                                    \
                                   : e_##NAME == e_beta ? rocblas_argument(-2) : e_##NAME> = \
             [](auto&& func, const Arguments& arg, auto) { func(#NAME, arg.NAME); }
@@ -247,15 +250,17 @@ struct ArgumentsHelper
 
     // Specialization for e_alpha
     template <>
-    static constexpr auto apply<e_alpha> = [](auto&& func, const Arguments& arg, auto T) {
-        func("alpha", arg.get_alpha<decltype(T)>());
-    };
+    ROCBLAS_CLANG_STATIC constexpr auto apply<e_alpha> =
+        [](auto&& func, const Arguments& arg, auto T) {
+            func("alpha", arg.get_alpha<decltype(T)>());
+        };
 
     // Specialization for e_beta
     template <>
-    static constexpr auto apply<e_beta> = [](auto&& func, const Arguments& arg, auto T) {
-        func("beta", arg.get_beta<decltype(T)>());
-    };
+    ROCBLAS_CLANG_STATIC constexpr auto apply<e_beta> =
+        [](auto&& func, const Arguments& arg, auto T) {
+            func("beta", arg.get_beta<decltype(T)>());
+        };
 };
 
 #else

@@ -16,15 +16,15 @@
 // Device Side //
 /////////////////
 template <typename To>
-static rocblas_status device_strided_batched_matrix_copy(const To*      src,
-                                                         rocblas_stride ld_src,
-                                                         rocblas_stride stride_src,
-                                                         To*            dst,
-                                                         rocblas_stride ld_dst,
-                                                         rocblas_stride stride_dst,
-                                                         rocblas_int    n1,
-                                                         rocblas_int    n2,
-                                                         rocblas_int    batch_count)
+rocblas_status device_strided_batched_matrix_copy(const To*      src,
+                                                  rocblas_stride ld_src,
+                                                  rocblas_stride stride_src,
+                                                  To*            dst,
+                                                  rocblas_stride ld_dst,
+                                                  rocblas_stride stride_dst,
+                                                  rocblas_int    n1,
+                                                  rocblas_int    n2,
+                                                  rocblas_int    batch_count)
 {
     if(src == dst && ld_src == ld_dst && stride_src == stride_dst)
         return rocblas_status_success; // no copy if src matrix == dst matrix
@@ -876,7 +876,7 @@ inline rocblas_status validateArgs(rocblas_handle    handle,
     // operation later, which should be ok.
 
     // pointers must be valid
-    if(!a || !b || !c || !d)
+    if(((!a || !b) && k != 0) || !c || !d)
         return rocblas_status_invalid_pointer;
 
     return rocblas_status_continue;

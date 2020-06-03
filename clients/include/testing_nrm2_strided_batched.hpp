@@ -18,6 +18,10 @@
 template <typename T>
 void testing_nrm2_strided_batched_bad_arg(const Arguments& arg)
 {
+    const bool FORTRAN = arg.fortran;
+    auto       rocblas_nrm2_strided_batched_fn
+        = FORTRAN ? rocblas_nrm2_strided_batched<T, true> : rocblas_nrm2_strided_batched<T, false>;
+
     rocblas_int         N           = 100;
     rocblas_int         incx        = 1;
     rocblas_stride      stridex     = 1;
@@ -33,13 +37,13 @@ void testing_nrm2_strided_batched_bad_arg(const Arguments& arg)
 
     CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_device));
 
-    EXPECT_ROCBLAS_STATUS(rocblas_nrm2_strided_batched<T>(
+    EXPECT_ROCBLAS_STATUS(rocblas_nrm2_strided_batched_fn(
                               handle, N, nullptr, incx, stridex, batch_count, d_rocblas_result),
                           rocblas_status_invalid_pointer);
     EXPECT_ROCBLAS_STATUS(
-        rocblas_nrm2_strided_batched<T>(handle, N, dx, incx, stridex, batch_count, nullptr),
+        rocblas_nrm2_strided_batched_fn(handle, N, dx, incx, stridex, batch_count, nullptr),
         rocblas_status_invalid_pointer);
-    EXPECT_ROCBLAS_STATUS(rocblas_nrm2_strided_batched<T>(
+    EXPECT_ROCBLAS_STATUS(rocblas_nrm2_strided_batched_fn(
                               nullptr, N, dx, incx, stridex, batch_count, d_rocblas_result),
                           rocblas_status_invalid_handle);
 }
@@ -47,6 +51,10 @@ void testing_nrm2_strided_batched_bad_arg(const Arguments& arg)
 template <typename T>
 void testing_nrm2_strided_batched(const Arguments& arg)
 {
+    const bool FORTRAN = arg.fortran;
+    auto       rocblas_nrm2_strided_batched_fn
+        = FORTRAN ? rocblas_nrm2_strided_batched<T, true> : rocblas_nrm2_strided_batched<T, false>;
+
     rocblas_int    N           = arg.N;
     rocblas_int    incx        = arg.incx;
     rocblas_stride stridex     = arg.stride_x;
@@ -60,16 +68,12 @@ void testing_nrm2_strided_batched(const Arguments& arg)
     // check to prevent undefined memory allocation error
     if(N <= 0 || incx <= 0 || batch_count <= 0)
     {
-        device_strided_batch_vector<T> dx(3, 1, 3, 3);
-        CHECK_DEVICE_ALLOCATION(dx.memcheck());
-        device_vector<real_t<T>> dr(std::max(3, std::abs(batch_count)));
-        CHECK_DEVICE_ALLOCATION(dr.memcheck());
-
-        CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_device));
+        host_vector<real_t<T>> res(std::max(1, std::abs(batch_count)));
+        CHECK_HIP_ERROR(res.memcheck());
+        CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host));
         EXPECT_ROCBLAS_STATUS(
-            rocblas_nrm2_strided_batched<T>(handle, N, dx, incx, stridex, batch_count, dr),
-            (N > 0 && incx > 0 && batch_count < 0) ? rocblas_status_invalid_size
-                                                   : rocblas_status_success);
+            rocblas_nrm2_strided_batched_fn(handle, N, nullptr, incx, stridex, batch_count, res),
+            rocblas_status_success);
         return;
     }
 
@@ -101,12 +105,12 @@ void testing_nrm2_strided_batched(const Arguments& arg)
     {
         // GPU BLAS, rocblas_pointer_mode_host
         CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host));
-        CHECK_ROCBLAS_ERROR(rocblas_nrm2_strided_batched<T>(
+        CHECK_ROCBLAS_ERROR(rocblas_nrm2_strided_batched_fn(
             handle, N, dx, incx, stridex, batch_count, rocblas_result_1));
 
         // GPU BLAS, rocblas_pointer_mode_device
         CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_device));
-        CHECK_ROCBLAS_ERROR(rocblas_nrm2_strided_batched<T>(
+        CHECK_ROCBLAS_ERROR(rocblas_nrm2_strided_batched_fn(
             handle, N, dx, incx, stridex, batch_count, d_rocblas_result_2));
         CHECK_HIP_ERROR(hipMemcpy(rocblas_result_2,
                                   d_rocblas_result_2,
@@ -148,20 +152,20 @@ void testing_nrm2_strided_batched(const Arguments& arg)
     {
         int number_cold_calls = arg.cold_iters;
         int number_hot_calls  = arg.iters;
-        CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host));
+        CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_device));
 
         for(int iter = 0; iter < number_cold_calls; iter++)
         {
-            rocblas_nrm2_strided_batched<T>(
-                handle, N, dx, incx, stridex, batch_count, rocblas_result_2);
+            rocblas_nrm2_strided_batched_fn(
+                handle, N, dx, incx, stridex, batch_count, d_rocblas_result_2);
         }
 
         gpu_time_used = get_time_us(); // in microseconds
 
         for(int iter = 0; iter < number_hot_calls; iter++)
         {
-            rocblas_nrm2_strided_batched<T>(
-                handle, N, dx, incx, stridex, batch_count, rocblas_result_2);
+            rocblas_nrm2_strided_batched_fn(
+                handle, N, dx, incx, stridex, batch_count, d_rocblas_result_2);
         }
 
         gpu_time_used = (get_time_us() - gpu_time_used) / number_hot_calls;

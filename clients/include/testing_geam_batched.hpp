@@ -19,6 +19,10 @@
 template <typename T>
 void testing_geam_batched_bad_arg(const Arguments& arg)
 {
+    const bool FORTRAN = arg.fortran;
+    auto       rocblas_geam_batched_fn
+        = FORTRAN ? rocblas_geam_batched<T, true> : rocblas_geam_batched<T, false>;
+
     const rocblas_int M = 100;
     const rocblas_int N = 100;
 
@@ -48,7 +52,7 @@ void testing_geam_batched_bad_arg(const Arguments& arg)
     CHECK_DEVICE_ALLOCATION(dB.memcheck());
     CHECK_DEVICE_ALLOCATION(dC.memcheck());
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_batched<T>(handle,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_batched_fn(handle,
                                                   transA,
                                                   transB,
                                                   M,
@@ -64,7 +68,7 @@ void testing_geam_batched_bad_arg(const Arguments& arg)
                                                   batch_count),
                           rocblas_status_invalid_pointer);
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_batched<T>(handle,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_batched_fn(handle,
                                                   transA,
                                                   transB,
                                                   M,
@@ -80,7 +84,7 @@ void testing_geam_batched_bad_arg(const Arguments& arg)
                                                   batch_count),
                           rocblas_status_invalid_pointer);
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_batched<T>(handle,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_batched_fn(handle,
                                                   transA,
                                                   transB,
                                                   M,
@@ -97,11 +101,11 @@ void testing_geam_batched_bad_arg(const Arguments& arg)
                           rocblas_status_invalid_pointer);
 
     EXPECT_ROCBLAS_STATUS(
-        rocblas_geam_batched<T>(
+        rocblas_geam_batched_fn(
             handle, transA, transB, M, N, nullptr, dA, lda, &h_beta, dB, ldb, dC, ldc, batch_count),
         rocblas_status_invalid_pointer);
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_batched<T>(handle,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_batched_fn(handle,
                                                   transA,
                                                   transB,
                                                   M,
@@ -117,7 +121,7 @@ void testing_geam_batched_bad_arg(const Arguments& arg)
                                                   batch_count),
                           rocblas_status_invalid_pointer);
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_batched<T>(nullptr,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_batched_fn(nullptr,
                                                   transA,
                                                   transB,
                                                   M,
@@ -137,6 +141,10 @@ void testing_geam_batched_bad_arg(const Arguments& arg)
 template <typename T>
 void testing_geam_batched(const Arguments& arg)
 {
+    const bool FORTRAN = arg.fortran;
+    auto       rocblas_geam_batched_fn
+        = FORTRAN ? rocblas_geam_batched<T, true> : rocblas_geam_batched<T, false>;
+
     rocblas_operation transA = char2rocblas_operation(arg.transA);
     rocblas_operation transB = char2rocblas_operation(arg.transB);
 
@@ -200,7 +208,7 @@ void testing_geam_batched(const Arguments& arg)
     bool invalid_size = M < 0 || N < 0 || lda < A_row || ldb < B_row || ldc < M || batch_count < 0;
     if(invalid_size || !M || !N || !batch_count)
     {
-        EXPECT_ROCBLAS_STATUS(rocblas_geam_batched<T>(handle,
+        EXPECT_ROCBLAS_STATUS(rocblas_geam_batched_fn(handle,
                                                       transA,
                                                       transB,
                                                       M,
@@ -267,7 +275,7 @@ void testing_geam_batched(const Arguments& arg)
     {
         CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host));
 
-        CHECK_ROCBLAS_ERROR(rocblas_geam_batched<T>(handle,
+        CHECK_ROCBLAS_ERROR(rocblas_geam_batched_fn(handle,
                                                     transA,
                                                     transB,
                                                     M,
@@ -289,7 +297,7 @@ void testing_geam_batched(const Arguments& arg)
 
         CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_device));
 
-        CHECK_ROCBLAS_ERROR(rocblas_geam_batched<T>(handle,
+        CHECK_ROCBLAS_ERROR(rocblas_geam_batched_fn(handle,
                                                     transA,
                                                     transB,
                                                     M,
@@ -309,24 +317,28 @@ void testing_geam_batched(const Arguments& arg)
         // reference calculation for golden result
         cpu_time_used = get_time_us();
 
-        for(int i3 = 0; i3 < batch_count; i3++)
+        for(int b = 0; b < batch_count; b++)
         {
-            auto hA_copy_p = hA_copy[i3];
-            auto hB_copy_p = hB_copy[i3];
-            auto hC_gold_p = hC_gold[i3];
+            auto hA_copy_p = hA_copy[b];
+            auto hB_copy_p = hB_copy[b];
+            auto hC_gold_p = hC_gold[b];
 
-            for(size_t i1 = 0; i1 < M; i1++)
-            {
-                for(size_t i2 = 0; i2 < N; i2++)
-                {
-                    hC_gold_p[i1 + i2 * ldc] = alpha * hA_copy_p[i1 * inc1_A + i2 * inc2_A]
-                                               + beta * hB_copy_p[i1 * inc1_B + i2 * inc2_B];
-                }
-            }
+            cblas_geam(transA,
+                       transB,
+                       M,
+                       N,
+                       (T*)h_alpha,
+                       (T*)hA_copy_p,
+                       lda,
+                       (T*)h_beta,
+                       (T*)hB_copy_p,
+                       ldb,
+                       (T*)hC_gold_p,
+                       ldc);
         }
 
         cpu_time_used = get_time_us() - cpu_time_used;
-        cblas_gflops  = geam_gflop_count<T>(M, N) / cpu_time_used * 1e6;
+        cblas_gflops  = geam_gflop_count<T>(M, N) * batch_count / cpu_time_used * 1e6;
 
         if(arg.unit_check)
         {
@@ -346,7 +358,7 @@ void testing_geam_batched(const Arguments& arg)
                 CHECK_HIP_ERROR(dC_in_place.transfer_from(hA));
             //
             CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host));
-            auto status_h = rocblas_geam_batched<T>(handle,
+            auto status_h = rocblas_geam_batched_fn(handle,
                                                     transA,
                                                     transB,
                                                     M,
@@ -372,21 +384,24 @@ void testing_geam_batched(const Arguments& arg)
                 CHECK_HIP_ERROR(dA.transfer_from(hA));
 
                 // reference calculation
-                for(int i3 = 0; i3 < batch_count; i3++)
+                for(int b = 0; b < batch_count; b++)
                 {
-                    auto hA_copy_p = hA_copy[i3];
-                    auto hB_copy_p = hB_copy[i3];
-                    auto hC_gold_p = hC_gold[i3];
+                    auto hA_copy_p = hA_copy[b];
+                    auto hB_copy_p = hB_copy[b];
+                    auto hC_gold_p = hC_gold[b];
 
-                    for(size_t i1 = 0; i1 < M; i1++)
-                    {
-                        for(size_t i2 = 0; i2 < N; i2++)
-                        {
-                            hC_gold_p[i1 + i2 * ldc]
-                                = alpha * hA_copy_p[i1 * inc1_A + i2 * inc2_A]
-                                  + beta * hB_copy_p[i1 * inc1_B + i2 * inc2_B];
-                        }
-                    }
+                    cblas_geam(transA,
+                               transB,
+                               M,
+                               N,
+                               (T*)h_alpha,
+                               (T*)hA_copy_p,
+                               lda,
+                               (T*)h_beta,
+                               (T*)hB_copy_p,
+                               ldb,
+                               (T*)hC_gold_p,
+                               ldc);
                 }
 
                 if(arg.unit_check)
@@ -408,7 +423,7 @@ void testing_geam_batched(const Arguments& arg)
                 CHECK_HIP_ERROR(dC_in_place.transfer_from(hB));
 
             CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host));
-            auto status_h = rocblas_geam_batched<T>(handle,
+            auto status_h = rocblas_geam_batched_fn(handle,
                                                     transA,
                                                     transB,
                                                     M,
@@ -434,21 +449,24 @@ void testing_geam_batched(const Arguments& arg)
                 CHECK_HIP_ERROR(hC_1.transfer_from(dC_in_place));
 
                 // reference calculation
-                for(int i3 = 0; i3 < batch_count; i3++)
+                for(int b = 0; b < batch_count; b++)
                 {
-                    auto hA_copy_p = hA_copy[i3];
-                    auto hB_copy_p = hB_copy[i3];
-                    auto hC_gold_p = hC_gold[i3];
+                    auto hA_copy_p = hA_copy[b];
+                    auto hB_copy_p = hB_copy[b];
+                    auto hC_gold_p = hC_gold[b];
 
-                    for(size_t i1 = 0; i1 < M; i1++)
-                    {
-                        for(size_t i2 = 0; i2 < N; i2++)
-                        {
-                            hC_gold_p[i1 + i2 * ldc]
-                                = alpha * hA_copy_p[i1 * inc1_A + i2 * inc2_A]
-                                  + beta * hB_copy_p[i1 * inc1_B + i2 * inc2_B];
-                        }
-                    }
+                    cblas_geam(transA,
+                               transB,
+                               M,
+                               N,
+                               (T*)h_alpha,
+                               (T*)hA_copy_p,
+                               lda,
+                               (T*)h_beta,
+                               (T*)hB_copy_p,
+                               ldb,
+                               (T*)hC_gold_p,
+                               ldc);
                 }
 
                 if(arg.unit_check)
@@ -475,7 +493,7 @@ void testing_geam_batched(const Arguments& arg)
 
         for(int i = 0; i < number_cold_calls; i++)
         {
-            rocblas_geam_batched<T>(handle,
+            rocblas_geam_batched_fn(handle,
                                     transA,
                                     transB,
                                     M,
@@ -494,7 +512,7 @@ void testing_geam_batched(const Arguments& arg)
         gpu_time_used = get_time_us(); // in microseconds
         for(int i = 0; i < number_hot_calls; i++)
         {
-            rocblas_geam_batched<T>(handle,
+            rocblas_geam_batched_fn(handle,
                                     transA,
                                     transB,
                                     M,
@@ -509,8 +527,9 @@ void testing_geam_batched(const Arguments& arg)
                                     ldc,
                                     batch_count);
         }
-        gpu_time_used  = get_time_us() - gpu_time_used;
-        rocblas_gflops = geam_gflop_count<T>(M, N) * number_hot_calls / gpu_time_used * 1e6;
+        gpu_time_used = get_time_us() - gpu_time_used;
+        rocblas_gflops
+            = geam_gflop_count<T>(M, N) * number_hot_calls * batch_count / gpu_time_used * 1e6;
 
         rocblas_cout << "transA,transB,M,N,alpha,lda,beta,ldb,ldc,batch_"
                         "count,rocblas-Gflops,us";

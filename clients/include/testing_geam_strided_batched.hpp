@@ -19,6 +19,10 @@
 template <typename T>
 void testing_geam_strided_batched_bad_arg(const Arguments& arg)
 {
+    const bool FORTRAN = arg.fortran;
+    auto       rocblas_geam_strided_batched_fn
+        = FORTRAN ? rocblas_geam_strided_batched<T, true> : rocblas_geam_strided_batched<T, false>;
+
     const rocblas_int M = 100;
     const rocblas_int N = 100;
 
@@ -52,7 +56,7 @@ void testing_geam_strided_batched_bad_arg(const Arguments& arg)
     CHECK_DEVICE_ALLOCATION(dB.memcheck());
     CHECK_DEVICE_ALLOCATION(dC.memcheck());
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched<T>(handle,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched_fn(handle,
                                                           transA,
                                                           transB,
                                                           M,
@@ -71,7 +75,7 @@ void testing_geam_strided_batched_bad_arg(const Arguments& arg)
                                                           batch_count),
                           rocblas_status_invalid_pointer);
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched<T>(handle,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched_fn(handle,
                                                           transA,
                                                           transB,
                                                           M,
@@ -90,7 +94,7 @@ void testing_geam_strided_batched_bad_arg(const Arguments& arg)
                                                           batch_count),
                           rocblas_status_invalid_pointer);
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched<T>(handle,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched_fn(handle,
                                                           transA,
                                                           transB,
                                                           M,
@@ -109,7 +113,7 @@ void testing_geam_strided_batched_bad_arg(const Arguments& arg)
                                                           batch_count),
                           rocblas_status_invalid_pointer);
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched<T>(handle,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched_fn(handle,
                                                           transA,
                                                           transB,
                                                           M,
@@ -128,7 +132,7 @@ void testing_geam_strided_batched_bad_arg(const Arguments& arg)
                                                           batch_count),
                           rocblas_status_invalid_pointer);
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched<T>(handle,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched_fn(handle,
                                                           transA,
                                                           transB,
                                                           M,
@@ -147,7 +151,7 @@ void testing_geam_strided_batched_bad_arg(const Arguments& arg)
                                                           batch_count),
                           rocblas_status_invalid_pointer);
 
-    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched<T>(nullptr,
+    EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched_fn(nullptr,
                                                           transA,
                                                           transB,
                                                           M,
@@ -170,6 +174,10 @@ void testing_geam_strided_batched_bad_arg(const Arguments& arg)
 template <typename T>
 void testing_geam_strided_batched(const Arguments& arg)
 {
+    const bool FORTRAN = arg.fortran;
+    auto       rocblas_geam_strided_batched_fn
+        = FORTRAN ? rocblas_geam_strided_batched<T, true> : rocblas_geam_strided_batched<T, false>;
+
     rocblas_operation transA = char2rocblas_operation(arg.transA);
     rocblas_operation transB = char2rocblas_operation(arg.transB);
 
@@ -246,7 +254,7 @@ void testing_geam_strided_batched(const Arguments& arg)
     bool invalid_size = M < 0 || N < 0 || lda < A_row || ldb < B_row || ldc < M || batch_count < 0;
     if(invalid_size || !M || !N || !batch_count)
     {
-        EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched<T>(handle,
+        EXPECT_ROCBLAS_STATUS(rocblas_geam_strided_batched_fn(handle,
                                                               transA,
                                                               transB,
                                                               M,
@@ -316,7 +324,7 @@ void testing_geam_strided_batched(const Arguments& arg)
         // ROCBLAS
 
         CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host));
-        CHECK_ROCBLAS_ERROR(rocblas_geam_strided_batched<T>(handle,
+        CHECK_ROCBLAS_ERROR(rocblas_geam_strided_batched_fn(handle,
                                                             transA,
                                                             transB,
                                                             M,
@@ -341,7 +349,7 @@ void testing_geam_strided_batched(const Arguments& arg)
 
         CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_device));
 
-        CHECK_ROCBLAS_ERROR(rocblas_geam_strided_batched<T>(handle,
+        CHECK_ROCBLAS_ERROR(rocblas_geam_strided_batched_fn(handle,
                                                             transA,
                                                             transB,
                                                             M,
@@ -364,17 +372,20 @@ void testing_geam_strided_batched(const Arguments& arg)
         // reference calculation for golden result
         cpu_time_used = get_time_us();
 
-        for(size_t i3 = 0; i3 < batch_count; i3++)
+        for(size_t b = 0; b < batch_count; b++)
         {
-            for(size_t i1 = 0; i1 < M; i1++)
-            {
-                for(size_t i2 = 0; i2 < N; i2++)
-                {
-                    hC_gold[i1 + i2 * ldc + i3 * stride_c]
-                        = alpha * hA_copy[i1 * inc1_A + i2 * inc2_A + i3 * stride_a]
-                          + beta * hB_copy[i1 * inc1_B + i2 * inc2_B + i3 * stride_b];
-                }
-            }
+            cblas_geam(transA,
+                       transB,
+                       M,
+                       N,
+                       (T*)h_alpha,
+                       (T*)hA + b * stride_a,
+                       lda,
+                       (T*)h_beta,
+                       (T*)hB + b * stride_b,
+                       ldb,
+                       (T*)hC_gold + b * stride_c,
+                       ldc);
         }
 
         cpu_time_used = get_time_us() - cpu_time_used;
@@ -399,7 +410,7 @@ void testing_geam_strided_batched(const Arguments& arg)
             dC_in_place = dA;
 
             CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host));
-            auto status_h = rocblas_geam_strided_batched<T>(handle,
+            auto status_h = rocblas_geam_strided_batched_fn(handle,
                                                             transA,
                                                             transB,
                                                             M,
@@ -429,17 +440,20 @@ void testing_geam_strided_batched(const Arguments& arg)
                 CHECK_HIP_ERROR(dA.transfer_from(hA));
 
                 // reference calculation
-                for(size_t i3 = 0; i3 < batch_count; i3++)
+                for(int b = 0; b < batch_count; b++)
                 {
-                    for(size_t i1 = 0; i1 < M; i1++)
-                    {
-                        for(size_t i2 = 0; i2 < N; i2++)
-                        {
-                            hC_gold[i1 + i2 * ldc + i3 * stride_c]
-                                = alpha * hA_copy[i1 * inc1_A + i2 * inc2_A + i3 * stride_a]
-                                  + beta * hB_copy[i1 * inc1_B + i2 * inc2_B + i3 * stride_b];
-                        }
-                    }
+                    cblas_geam(transA,
+                               transB,
+                               M,
+                               N,
+                               (T*)h_alpha,
+                               (T*)hA_copy + b * stride_a,
+                               lda,
+                               (T*)h_beta,
+                               (T*)hB_copy + b * stride_b,
+                               ldb,
+                               (T*)hC_gold + b * stride_c,
+                               ldc);
                 }
 
                 if(arg.unit_check)
@@ -460,7 +474,7 @@ void testing_geam_strided_batched(const Arguments& arg)
             dC_in_place = dB;
 
             CHECK_ROCBLAS_ERROR(rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host));
-            auto status_h = rocblas_geam_strided_batched<T>(handle,
+            auto status_h = rocblas_geam_strided_batched_fn(handle,
                                                             transA,
                                                             transB,
                                                             M,
@@ -490,17 +504,20 @@ void testing_geam_strided_batched(const Arguments& arg)
                     hipMemcpy(hC_1, dC_in_place, sizeof(T) * size_C, hipMemcpyDeviceToHost));
 
                 // reference calculation
-                for(size_t i3 = 0; i3 < batch_count; i3++)
+                for(int b = 0; b < batch_count; b++)
                 {
-                    for(size_t i1 = 0; i1 < M; i1++)
-                    {
-                        for(size_t i2 = 0; i2 < N; i2++)
-                        {
-                            hC_gold[i1 + i2 * ldc + i3 * stride_c]
-                                = alpha * hA_copy[i1 * inc1_A + i2 * inc2_A + i3 * stride_a]
-                                  + beta * hB_copy[i1 * inc1_B + i2 * inc2_B + i3 * stride_b];
-                        }
-                    }
+                    cblas_geam(transA,
+                               transB,
+                               M,
+                               N,
+                               (T*)h_alpha,
+                               (T*)hA_copy + b * stride_a,
+                               lda,
+                               (T*)h_beta,
+                               (T*)hB_copy + b * stride_b,
+                               ldb,
+                               (T*)hC_gold + b * stride_c,
+                               ldc);
                 }
 
                 if(arg.unit_check)
@@ -527,7 +544,7 @@ void testing_geam_strided_batched(const Arguments& arg)
 
         for(int i = 0; i < number_cold_calls; i++)
         {
-            rocblas_geam_strided_batched<T>(handle,
+            rocblas_geam_strided_batched_fn(handle,
                                             transA,
                                             transB,
                                             M,
@@ -549,7 +566,7 @@ void testing_geam_strided_batched(const Arguments& arg)
         gpu_time_used = get_time_us(); // in microseconds
         for(int i = 0; i < number_hot_calls; i++)
         {
-            rocblas_geam_strided_batched<T>(handle,
+            rocblas_geam_strided_batched_fn(handle,
                                             transA,
                                             transB,
                                             M,
@@ -567,8 +584,9 @@ void testing_geam_strided_batched(const Arguments& arg)
                                             stride_c,
                                             batch_count);
         }
-        gpu_time_used  = get_time_us() - gpu_time_used;
-        rocblas_gflops = geam_gflop_count<T>(M, N) * number_hot_calls / gpu_time_used * 1e6;
+        gpu_time_used = get_time_us() - gpu_time_used;
+        rocblas_gflops
+            = geam_gflop_count<T>(M, N) * batch_count * number_hot_calls / gpu_time_used * 1e6;
 
         rocblas_cout << "transA,transB,M,N,alpha,lda,stride_a,beta,ldb,stride_b,ldc,stride_c,batch_"
                         "count,rocblas-Gflops,us";

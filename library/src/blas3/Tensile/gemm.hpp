@@ -495,17 +495,23 @@ inline rocblas_status validateArgs(rocblas_handle    handle,
     if(!m || !n || !batch_count)
         return rocblas_status_success;
 
-    if(!alpha || !beta)
+    if(!beta)
         return rocblas_status_invalid_pointer;
 
-    if(handle->pointer_mode == rocblas_pointer_mode_host)
+    if(handle->pointer_mode == rocblas_pointer_mode_host && *beta == 1)
     {
-        if(((*alpha == 0) || (k == 0)) && (*beta == 1))
+        if(!k)
+            return rocblas_status_success;
+
+        if(!alpha)
+            return rocblas_status_invalid_pointer;
+
+        if(!*alpha)
             return rocblas_status_success;
     }
 
     // pointers must be valid
-    if(!a || !b || !c)
+    if((k && (!a || !b || !alpha)) || !c)
         return rocblas_status_invalid_pointer;
 
     t1                                = std::chrono::high_resolution_clock::now();
@@ -566,10 +572,13 @@ ROCBLAS_EXPORT_NOINLINE rocblas_status rocblas_gemm_template(rocblas_handle    h
     t1 = std::chrono::high_resolution_clock::now();
     if(handle->pointer_mode == rocblas_pointer_mode_device)
     {
-        RETURN_IF_HIP_ERROR(hipMemcpy(&alpha_h, alpha, sizeof(T), hipMemcpyDeviceToHost));
-        RETURN_IF_HIP_ERROR(hipMemcpy(&beta_h, beta, sizeof(T), hipMemcpyDeviceToHost));
+        if(k)
+            RETURN_IF_HIP_ERROR(hipMemcpy(&alpha_h, alpha, sizeof(T), hipMemcpyDeviceToHost));
+        else
+            alpha_h = 0;
         alpha = &alpha_h;
-        beta  = &beta_h;
+        RETURN_IF_HIP_ERROR(hipMemcpy(&beta_h, beta, sizeof(T), hipMemcpyDeviceToHost));
+        beta = &beta_h;
     }
     t2 = std::chrono::high_resolution_clock::now();
 

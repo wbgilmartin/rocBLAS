@@ -23,6 +23,7 @@ rocBLAS build & installation helper script
       -t | --test_local_path     Use a local path for Tensile instead of remote GIT repo
            --cpu_ref_lib         Specify library to use for CPU reference code in testing (blis or lapack)
            --[no-]hip-clang      Whether to build library for amdgpu backend using hip-clang
+           --[no-]merge-files    Whether to enable Tensile_MERGE_FILES (default is enable)
            --build_dir           Specify name of output directory (default is ./build)
       -n | --no-tensile          Build subset of library that does not require Tensile
       -s | --tensile-host        Build with Tensile host
@@ -148,6 +149,10 @@ install_packages( )
                                       "make" "cmake3" "rpm-build"
                                       "python34" "PyYAML" "python3*-PyYAML" "python3*-distutils-extra" "python3-virtualenv"
                                       "gcc-c++" "zlib-devel" "wget" )
+  local library_dependencies_centos_rhel_8=( "epel-release"
+                                      "make" "cmake3" "rpm-build"
+                                      "python3" "python3*-PyYAML" "python3-virtualenv"
+                                      "gcc-c++" "zlib-devel" "wget" "llvm-devel" "llvm-static" )
   local library_dependencies_fedora=( "make" "cmake" "rpm-build"
                                       "python34" "PyYAML" "python3*-PyYAML" "python3*-distutils-extra" "python3-virtualenv"
                                       "gcc-c++" "libcxx-devel" "zlib-devel" "wget" "llvm7.0-devel" "llvm7.0-static" )
@@ -182,6 +187,7 @@ install_packages( )
   # dependencies to build the client
   local client_dependencies_ubuntu=( "gfortran" "libomp-dev" "libboost-program-options-dev")
   local client_dependencies_centos_rhel=( "devtoolset-7-gcc-gfortran" "libgomp" "boost-devel" )
+  local client_dependencies_centos_rhel_8=( "gcc-gfortran" "libgomp" "boost-devel" )
   local client_dependencies_fedora=( "gcc-gfortran" "libgomp" "boost-devel" )
   local client_dependencies_sles=( "gcc-fortran" "libgomp1" "libboost_program_options1_66_0-devel" )
 
@@ -196,13 +202,21 @@ install_packages( )
       ;;
 
     centos|rhel)
-#     yum -y update brings *all* installed packages up to date
-#     without seeking user approval
-#     elevate_if_not_root yum -y update
-      install_yum_packages "${library_dependencies_centos_rhel[@]}"
+      if [[ ( "${VERSION_ID}" -ge 8 ) ]]; then
+        install_yum_packages "${library_dependencies_centos_rhel_8[@]}"
 
-      if [[ "${build_clients}" == true ]]; then
-        install_yum_packages "${client_dependencies_centos_rhel[@]}"
+        if [[ "${build_clients}" == true ]]; then
+          install_yum_packages "${client_dependencies_centos_rhel_8[@]}"
+        fi
+      else
+  #     yum -y update brings *all* installed packages up to date
+  #     without seeking user approval
+  #     elevate_if_not_root yum -y update
+        install_yum_packages "${library_dependencies_centos_rhel[@]}"
+
+        if [[ "${build_clients}" == true ]]; then
+          install_yum_packages "${client_dependencies_centos_rhel[@]}"
+        fi
       fi
       ;;
 
@@ -267,6 +281,7 @@ tensile_logic=asm_full
 tensile_architecture=all
 tensile_cov=
 tensile_fork=
+tensile_merge_files=
 tensile_tag=
 tensile_test_local_path=
 tensile_version=
@@ -293,7 +308,7 @@ fi
 # check if we have a modern version of getopt that can handle whitespace and long parameters
 getopt -T
 if [[ $? -eq 4 ]]; then
-  GETOPT_PARSE=$(getopt --name "${0}" --longoptions help,install,clients,dependencies,debug,hip-clang,no-hip-clang,no_tensile,no-tensile,tensile-host,no-tensile-host,logic:,architecture:,cov:,fork:,branch:,build_dir:,test_local_path:,cpu_ref_lib:,use-custom-version:,skipldconf,static,ignore-cuda,rocm-dev: --options nsrhicdgl:a:o:f:b:t:u:v: -- "$@")
+  GETOPT_PARSE=$(getopt --name "${0}" --longoptions help,install,clients,dependencies,debug,hip-clang,no-hip-clang,merge-files,no-merge-files,no_tensile,no-tensile,tensile-host,no-tensile-host,logic:,architecture:,cov:,fork:,branch:,build_dir:,test_local_path:,cpu_ref_lib:,use-custom-version:,skipldconf,static,ignore-cuda,rocm-dev: --options nsrhicdgl:a:o:f:b:t:u:v: -- "$@")
 else
   echo "Need a new version of getopt"
   exit 1
@@ -365,6 +380,12 @@ while true; do
         shift ;;
     --no-hip-clang)
         build_hip_clang=false
+        shift ;;
+    --merge-files)
+        tensile_merge_files=true
+        shift ;;
+    --no-merge-files)
+        tensile_merge_files=false
         shift ;;
     --skipldconf)
         skip_ld_conf_entry=true
@@ -479,10 +500,10 @@ elif [[ "${build_clients}" == true ]]; then
   popd
 fi
 
-# We append customary rocm path; if user provides custom rocm path in ${path}, our
-# hard-coded path has lesser priority
+# If user provides custom ${rocm_path} path for hcc it has lesser priority,
+# but with hip-clang existing path has lesser priority to avoid use of installed clang++ by tensile
 if [[ "${build_hip_clang}" == true ]]; then
-  export PATH=${PATH}:${rocm_path}/bin:${rocm_path}/hip/bin:${rocm_path}/llvm/bin
+  export PATH=${rocm_path}/bin:${rocm_path}/hip/bin:${rocm_path}/llvm/bin:${PATH}
 else
   export PATH=${PATH}:${rocm_path}/bin:${rocm_path}/hip/bin:${rocm_path}/hcc/bin
 fi
@@ -541,12 +562,15 @@ pushd .
   if [[ "${build_tensile_host}" == true ]]; then
     tensile_opt="${tensile_opt} -DBUILD_WITH_TENSILE_HOST=ON"
   fi
+  if [[ "${tensile_merge_files}" == false ]]; then
+    tensile_opt="${tensile_opt} -DTensile_MERGE_FILES=OFF"
+  fi
 
   cmake_common_options="${cmake_common_options} ${tensile_opt}"
 
 
   if [[ "${build_clients}" == true ]]; then
-    cmake_client_options="${cmake_client_options} -DBUILD_CLIENTS_SAMPLES=ON -DBUILD_CLIENTS_TESTS=ON -DBUILD_CLIENTS_BENCHMARKS=ON -DLINK_BLIS=${LINK_BLIS}"
+    cmake_client_options="${cmake_client_options} -DBUILD_CLIENTS_SAMPLES=ON -DBUILD_CLIENTS_TESTS=ON -DBUILD_CLIENTS_BENCHMARKS=ON -DLINK_BLIS=${LINK_BLIS} -DBUILD_DIR=${build_dir}"
   fi
 
   if [[ "${build_hip_clang}" == true ]]; then

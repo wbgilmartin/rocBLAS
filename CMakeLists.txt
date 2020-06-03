@@ -25,7 +25,8 @@ if ( NOT DEFINED CMAKE_Fortran_COMPILER AND NOT DEFINED ENV{FC} )
   set( CMAKE_Fortran_COMPILER  "gfortran" )
 endif()
 
-project( rocblas LANGUAGES CXX )
+unset(ENV{ROCM_BUILD_ID})
+project( rocblas LANGUAGES CXX Fortran )
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -94,6 +95,7 @@ elseif( CXX_VERSION_STRING MATCHES "nvcc" )
 elseif( CXX_VERSION_STRING MATCHES "HCC" )
   message( STATUS "HCC compiler set; ROCm backend selected [ CXX=/opt/rocm-<ver>/bin/hcc cmake ... ]" )
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -hc")
+
 endif( )
 
 # This finds the rocm-cmake project, and installs it if not found
@@ -136,7 +138,7 @@ get_os_id(OS_ID)
 message (STATUS "OS detected is ${OS_ID}")
 
 # Versioning via rocm-cmake
-set ( VERSION_STRING "2.21.0" )
+set ( VERSION_STRING "2.23.0" )
 rocm_setup_version( VERSION ${VERSION_STRING} )
 
 # Append our library helper cmake path and the cmake path for hip (for convenience)
@@ -193,7 +195,7 @@ if( BUILD_WITH_TENSILE )
   if (TENSILE_VERSION)
     find_package(Tensile ${TENSILE_VERSION} EXACT REQUIRED HIP LLVM OpenMP PATHS "${INSTALLED_TENSILE_PATH}")
   else()
-    find_package(Tensile 4.18.0 EXACT REQUIRED HIP LLVM OpenMP PATHS "${INSTALLED_TENSILE_PATH}")
+    find_package(Tensile 4.19.0 EXACT REQUIRED HIP LLVM OpenMP PATHS "${INSTALLED_TENSILE_PATH}")
   endif()
 endif()
 
@@ -202,14 +204,23 @@ if( CMAKE_CXX_COMPILER MATCHES ".*/hcc$" )
   find_package( hcc REQUIRED CONFIG PATHS ${ROCM_PATH} /opt/rocm )
   find_package( hip REQUIRED CONFIG PATHS ${ROCM_PATH} /opt/rocm )
 endif( )
+if( CMAKE_CXX_COMPILER MATCHES ".*/hipcc$" )
+  find_package( hip REQUIRED CONFIG PATHS ${ROCM_PATH} /opt/rocm )
+endif( )
 
 # CMake list of machine targets
-if( Tensile_ARCHITECTURE STREQUAL "all" )
-  set( gpus "gfx803;gfx900;gfx906;gfx908")
+if( Tensile_ARCHITECTURE )
+  if( Tensile_ARCHITECTURE STREQUAL "all" )
+    set( gpus "gfx803;gfx900;gfx906;gfx908")
+  else()
+    set( gpus ${Tensile_ARCHITECTURE})
+  endif()
+  # We must match tensile if architecture is set
+  set( ROCBLAS_GPUS ${gpus} )
 else()
-  set( gpus ${Tensile_ARCHITECTURE})
-endif()
-set( AMDGPU_TARGETS ${gpus} CACHE STRING "List of specific machine types for library to target" )
+  set( ROCBLAS_GPUS ${AMDGPU_TARGETS} )
+endif( )
+message(STATUS "Specific GPU TARGET(s): " ${ROCBLAS_GPUS})
 
 add_subdirectory( library )
 

@@ -42,7 +42,7 @@ if( BUILD_WITH_TENSILE )
   endif( )
 
   set( Tensile_RUNTIME_LANGUAGE "HIP" )
-  message( STATUS "AMDGPU_TARGETS=${AMDGPU_TARGETS}" )
+  message( STATUS "ROCBLAS_GPUS=${ROCBLAS_GPUS}" )
   if( BUILD_WITH_TENSILE_HOST )
     #TODO update when this feature has been validated
     #set( PACKAGE_TENSILE_LIBRARY ON )
@@ -66,17 +66,17 @@ if( BUILD_WITH_TENSILE )
    )
 
   ## Create a unique name for Tensile compiled for rocBLAS
-  #  set_target_properties( Tensile PROPERTIES OUTPUT_NAME tensile-rocblas CXX_EXTENSIONS NO )
+  #  set_target_properties( Tensile PROPERTIES OUTPUT_NAME rocblas-tensile CXX_EXTENSIONS NO )
   # build gemm with Tensile Host library
   if( BUILD_WITH_TENSILE_HOST )
       # Create a unique name for Tensile compiled for rocBLAS
-      set_target_properties( TensileHost PROPERTIES OUTPUT_NAME tensile-rocblas CXX_EXTENSIONS NO )
+      set_target_properties( TensileHost PROPERTIES OUTPUT_NAME rocblas-tensile CXX_EXTENSIONS NO )
       #target_compile_definitions( Tensile PUBLIC USE_TENSILE_HOST )
       target_compile_definitions( TensileHost PUBLIC USE_TENSILE_HOST )
       #endif()
   else()
     # Create a unique name for Tensile compiled for rocBLAS
-    set_target_properties( Tensile PROPERTIES OUTPUT_NAME tensile-rocblas CXX_EXTENSIONS NO )
+    set_target_properties( Tensile PROPERTIES OUTPUT_NAME rocblas-tensile CXX_EXTENSIONS NO )
     target_link_libraries( Tensile PRIVATE hip::device )
   endif()
 
@@ -84,7 +84,7 @@ if( BUILD_WITH_TENSILE )
     # Remove following when hcc is fixed; hcc emits following spurious warning ROCm v1.6.1
     # "clang-5.0: warning: argument unused during compilation: '-isystem /opt/rocm/include'"
     # target_compile_options( Tensile PRIVATE -Wno-unused-command-line-argument -fno-gpu-rdc -Wno-deprecated-declarations)
-    foreach( target ${AMDGPU_TARGETS} )
+    foreach( target ${ROCBLAS_GPUS} )
       if( BUILD_WITH_TENSILE_HOST )
           # Remove following when hcc is fixed; hcc emits following spurious warning ROCm v1.6.1
           # "clang-5.0: warning: argument unused during compilation: '-isystem /opt/rocm/include'"
@@ -95,6 +95,16 @@ if( BUILD_WITH_TENSILE )
           # "clang-5.0: warning: argument unused during compilation: '-isystem /opt/rocm/include'"
           target_compile_options( Tensile PRIVATE -Wno-unused-command-line-argument -fno-gpu-rdc -Wno-deprecated-declarations)
           target_compile_options( Tensile PRIVATE --amdgpu-target=${target} )
+      endif()
+    endforeach( )
+  endif( )
+
+  if( CMAKE_CXX_COMPILER MATCHES ".*/hipcc$" )
+    foreach( target ${ROCBLAS_GPUS} )
+      if( BUILD_WITH_TENSILE_HOST )
+        target_compile_options( TensileHost PRIVATE --amdgpu-target=${target} )
+      else()
+        target_compile_options( Tensile PRIVATE --amdgpu-target=${target} )
       endif()
     endforeach( )
   endif( )
@@ -149,6 +159,9 @@ if( BUILD_WITH_TENSILE )
 endif( ) # BUILD_WITH_TENSILE
 
 set( rocblas_blas3_source_no_tensile
+    blas3/rocblas_dgmm.cpp
+    blas3/rocblas_dgmm_batched.cpp
+    blas3/rocblas_dgmm_strided_batched.cpp
     blas3/rocblas_geam.cpp
     blas3/rocblas_geam_batched.cpp
     blas3/rocblas_geam_strided_batched.cpp
@@ -297,7 +310,13 @@ set( rocblas_blas1_source
   blas1/rocblas_swap_strided_batched.cpp
 )
 
+set(rocblas_f90_source
+    rocblas_module.f90
+)
+
 prepend_path( ".." rocblas_headers_public relative_rocblas_headers_public )
+
+
 
 add_library( rocblas
   ${rocblas_ex_source}
@@ -308,6 +327,9 @@ add_library( rocblas
   ${relative_rocblas_headers_public}
   ${rocblas_auxiliary_source}
 )
+
+# Create rocBLAS Fortran module
+add_library(rocblas_fortran ${rocblas_f90_source})
 
 add_library( roc::rocblas ALIAS rocblas )
 
@@ -324,8 +346,16 @@ if( CMAKE_CXX_COMPILER MATCHES ".*/hcc$" )
   # Remove following when hcc is fixed; hcc emits following spurious warning ROCm v1.6.1
   # "clang-5.0: warning: argument unused during compilation: '-isystem /opt/rocm/include'"
   target_compile_options( rocblas PRIVATE -Wno-unused-command-line-argument -fno-gpu-rdc )
-  foreach( target ${AMDGPU_TARGETS} )
+  foreach( target ${ROCBLAS_GPUS} )
     target_compile_options( rocblas PRIVATE --amdgpu-target=${target} )
+  endforeach( )
+endif( )
+
+if( CMAKE_CXX_COMPILER MATCHES ".*/hipcc$" )
+  foreach( target ${ROCBLAS_GPUS} )
+    message( STATUS "TARGET: " ${target} )
+    target_compile_options( rocblas PRIVATE --amdgpu-target=${target} )
+    target_link_libraries( rocblas PRIVATE --amdgpu-target=${target} )
   endforeach( )
 endif( )
 
@@ -357,6 +387,8 @@ if( BUILD_WITH_TENSILE )
   endif()
 endif()
 
+target_compile_definitions( rocblas PRIVATE ROCM_USE_FLOAT16 )
+
 rocm_set_soversion( rocblas ${rocblas_SOVERSION} )
 set_target_properties( rocblas PROPERTIES CXX_EXTENSIONS NO )
 set_target_properties( rocblas PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
@@ -382,6 +414,11 @@ endif( )
 
 ############################################################
 # Installation
+
+# Force installation of .f90 module file
+install(FILES "rocblas_module.f90"
+        DESTINATION "rocblas/include"
+)
 
 rocm_install_targets(
   TARGETS ${package_targets}
